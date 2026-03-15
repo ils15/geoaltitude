@@ -1,10 +1,26 @@
 import React from 'react';
 import { HgeoResult } from '../lib/api';
+import { StatsDashboard } from './StatsDashboard';
+import { ReportButton } from './ReportButton';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Download, Map as MapIcon, Table2, Layers } from 'lucide-react';
+import { Download, Map as MapIcon, Table2, Layers, Loader2 } from 'lucide-react';
 import Papa from 'papaparse';
+import { Toaster, toast } from 'react-hot-toast';
+
+const SkeletonRow = () => (
+  <tr className="animate-pulse border-b border-slate-100 dark:border-slate-800/50">
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-12"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+  </tr>
+);
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -28,25 +44,34 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "resultados_hgeohnor.csv");
+    link.setAttribute("download", `resultados_geoaltitude_${new Date().getTime()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast.success('Arquivo CSV exportado com sucesso!');
   };
 
   const singleResultWithH = results.length === 1 && results[0].h !== undefined ? results[0] : null;
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-200">
+    <div id="report-content" className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-200">
       <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Resultados ({results.length})</h2>
         <div className="flex items-center gap-4">
+          <ReportButton results={results} elementId="report-content" />
+          <button
+            onClick={downloadResults}
+            className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 text-ibge-blue dark:text-ibge-light-blue border border-ibge-blue/20 dark:border-ibge-blue/50 hover:bg-ibge-blue/5 dark:hover:bg-ibge-blue/10 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+          </button>
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg transition-colors duration-200">
             <button
               onClick={() => setView('table')}
               className={`p-1.5 rounded-md transition-colors ${
-                view === 'table' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                view === 'table' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Ver Tabela"
             >
@@ -55,27 +80,26 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
             <button
               onClick={() => setView('map')}
               className={`p-1.5 rounded-md transition-colors ${
-                view === 'map' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                view === 'map' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Ver Mapa"
             >
               <MapIcon className="w-4 h-4" />
             </button>
           </div>
-          <button
-            onClick={downloadResults}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Exportar CSV
-          </button>
         </div>
       </div>
+
+      {results.length > 1 && (
+        <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+          <StatsDashboard results={results} />
+        </div>
+      )}
 
       {singleResultWithH && (
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-500" />
+            <Layers className="w-4 h-4 text-ibge-light-blue" />
             Comparação de Altitudes
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -86,15 +110,15 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
             </div>
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Ondulação Geoidal (N)</p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{singleResultWithH.fator_conversao} <span className="text-sm font-normal text-indigo-400">m</span></p>
+              <p className="text-2xl font-bold text-ibge-blue dark:text-ibge-light-blue">{singleResultWithH.fator_conversao} <span className="text-sm font-normal text-ibge-light-blue">m</span></p>
               <p className="text-xs text-slate-400 mt-1">Modelo: {singleResultWithH.modelo}</p>
             </div>
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-bl-full -mr-8 -mt-8 z-0"></div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-ibge-green/30 dark:border-ibge-green/50 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-ibge-green/20 dark:bg-ibge-green/30 rounded-bl-full -mr-8 -mt-8 z-0"></div>
               <div className="relative z-10">
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1">Altitude Ortométrica (H)</p>
-                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{singleResultWithH.H?.toFixed(3)} <span className="text-sm font-normal text-emerald-500">m</span></p>
-                <p className="text-xs text-emerald-500/80 dark:text-emerald-400/80 mt-1">Referência: Nível Médio do Mar (Geóide)</p>
+                <p className="text-xs text-ibge-green dark:text-ibge-green font-medium mb-1">Altitude Ortométrica (H)</p>
+                <p className="text-2xl font-bold text-ibge-green dark:text-ibge-green">{singleResultWithH.H?.toFixed(3)} <span className="text-sm font-normal text-ibge-green">m</span></p>
+                <p className="text-xs text-ibge-green/80 dark:text-ibge-green/80 mt-1">Referência: Nível Médio do Mar (Geóide)</p>
               </div>
             </div>
           </div>
@@ -103,12 +127,12 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
           <div className="relative h-48 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center p-4">
              <div className="relative w-full max-w-md h-full flex flex-col justify-center">
                 {/* Superfície Terrestre */}
-                <div className="absolute top-[20%] left-0 w-full border-t-2 border-emerald-500 border-dashed"></div>
-                <span className="absolute top-[10%] left-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">Superfície Terrestre (Ponto)</span>
+                <div className="absolute top-[20%] left-0 w-full border-t-2 border-ibge-green border-dashed"></div>
+                <span className="absolute top-[10%] left-2 text-xs font-medium text-ibge-green">Superfície Terrestre (Ponto)</span>
                 
                 {/* Geóide */}
-                <div className="absolute top-[50%] left-0 w-full border-t-2 border-blue-500"></div>
-                <span className="absolute top-[40%] left-2 text-xs font-medium text-blue-600 dark:text-blue-400">Geóide (NMM)</span>
+                <div className="absolute top-[50%] left-0 w-full border-t-2 border-ibge-light-blue"></div>
+                <span className="absolute top-[40%] left-2 text-xs font-medium text-ibge-light-blue">Geóide (NMM)</span>
                 
                 {/* Elipsoide */}
                 <div className="absolute top-[80%] left-0 w-full border-t-2 border-slate-400"></div>
@@ -124,17 +148,17 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                   </div>
 
                   {/* H (Geóide até Superfície) */}
-                  <div className="absolute top-[20%] bottom-[50%] -left-8 w-px bg-emerald-500 flex items-center justify-center">
-                    <div className="w-2 h-px bg-emerald-500 absolute top-0"></div>
-                    <div className="w-2 h-px bg-emerald-500 absolute bottom-0"></div>
-                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">H = {singleResultWithH.H?.toFixed(2)}m</span>
+                  <div className="absolute top-[20%] bottom-[50%] -left-8 w-px bg-ibge-green flex items-center justify-center">
+                    <div className="w-2 h-px bg-ibge-green absolute top-0"></div>
+                    <div className="w-2 h-px bg-ibge-green absolute bottom-0"></div>
+                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-ibge-green">H = {singleResultWithH.H?.toFixed(2)}m</span>
                   </div>
 
                   {/* N (Elipsoide até Geóide) */}
-                  <div className="absolute top-[50%] bottom-[20%] -left-8 w-px bg-indigo-500 flex items-center justify-center">
-                    <div className="w-2 h-px bg-indigo-500 absolute top-0"></div>
-                    <div className="w-2 h-px bg-indigo-500 absolute bottom-0"></div>
-                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-indigo-600 dark:text-indigo-400">N = {singleResultWithH.fator_conversao}m</span>
+                  <div className="absolute top-[50%] bottom-[20%] -left-8 w-px bg-ibge-blue flex items-center justify-center">
+                    <div className="w-2 h-px bg-ibge-blue absolute top-0"></div>
+                    <div className="w-2 h-px bg-ibge-blue absolute bottom-0"></div>
+                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-ibge-blue">N = {singleResultWithH.fator_conversao}m</span>
                   </div>
                 </div>
              </div>
@@ -151,19 +175,27 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 <th className="px-6 py-3">Longitude</th>
                 <th className="px-6 py-3">Altitude (h)</th>
                 <th className="px-6 py-3">Ondulação (N)</th>
-                <th className="px-6 py-3">Altitude (H)</th>
+                 <th className="px-6 py-3">Altitude (H)</th>
+                <th className="px-6 py-3">Endereço</th>
                 <th className="px-6 py-3">Incerteza (m)</th>
                 <th className="px-6 py-3">Modelo</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-              {results.map((res, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {results.length === 0 ? (
+                    <>
+                      <SkeletonRow />
+                      <SkeletonRow />
+                      <SkeletonRow />
+                    </>
+                  ) : results.map((res, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-6 py-3 font-mono text-xs">{res.lat}</td>
                   <td className="px-6 py-3 font-mono text-xs">{res.long}</td>
                   <td className="px-6 py-3 font-mono text-xs">{res.h !== undefined ? `${res.h.toFixed(3)}m` : '-'}</td>
-                  <td className="px-6 py-3 font-medium text-indigo-600 dark:text-indigo-400">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</td>
-                  <td className="px-6 py-3 font-mono text-xs font-medium text-emerald-600 dark:text-emerald-400">{res.H !== undefined ? `${res.H.toFixed(3)}m` : '-'}</td>
+                  <td className="px-6 py-3 font-medium text-ibge-blue dark:text-ibge-light-blue">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</td>
+                   <td className="px-6 py-3 font-mono text-xs font-medium text-ibge-green">{res.H !== undefined ? `${res.H.toFixed(3)}m` : '-'}</td>
+                  <td className="px-6 py-3 text-xs max-w-xs truncate" title={res.address}>{res.address || '-'}</td>
                   <td className="px-6 py-3">{res.incerteza}{typeof res.incerteza === 'number' ? 'm' : ''}</td>
                   <td className="px-6 py-3 text-xs">{res.modelo}</td>
                 </tr>
@@ -193,8 +225,9 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                     <p><strong>Lat:</strong> {res.lat}</p>
                     <p><strong>Lon:</strong> {res.long}</p>
                     {res.h !== undefined && <p><strong>Alt. Geométrica (h):</strong> {res.h.toFixed(3)}m</p>}
-                    <p><strong>Ondulação (N):</strong> <span className="text-indigo-600 font-medium">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</span></p>
-                    {res.H !== undefined && <p><strong>Alt. Ortométrica (H):</strong> <span className="text-emerald-600 font-medium">{res.H.toFixed(3)}m</span></p>}
+                    <p><strong>Ondulação (N):</strong> <span className="text-ibge-blue font-medium">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</span></p>
+                     {res.H !== undefined && <p><strong>Alt. Ortométrica (H):</strong> <span className="text-ibge-green font-medium">{res.H.toFixed(3)}m</span></p>}
+                    {res.address && <p><strong>Localização:</strong> {res.address}</p>}
                     <p><strong>Incerteza:</strong> {res.incerteza}{typeof res.incerteza === 'number' ? 'm' : ''}</p>
                   </div>
                 </Popup>

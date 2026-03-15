@@ -6,6 +6,7 @@ export interface HgeoResult {
   modelo: string;
   h?: number; // Altitude geométrica
   H?: number; // Altitude ortométrica
+  address?: string; // Endereço aproximado
 }
 
 export async function getPontoDec(lat: number, lon: number): Promise<HgeoResult> {

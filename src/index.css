@@ -3,6 +3,12 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-ibge-blue: #004a8e;
+  --color-ibge-light-blue: #00a1e4;
+  --color-ibge-green: #00a859;
+  --color-ibge-gold: #fdb913;
+  --color-ibge-dark: #1a1a1a;
 }
 
 @layer utilities {

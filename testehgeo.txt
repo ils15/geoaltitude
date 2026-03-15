@@ -1,0 +1,11 @@
+ponto,latitude,longitude,altitude_elipsoidal,descricao
+1,-22.9519,-43.2105,715.5,Cristo Redentor
+2,-22.9492,-43.1545,402.1,Pao de Acucar
+3,-22.9891,-43.1925,5.2,Praia de Copacabana
+4,-22.8995,-43.1803,4.8,Museu do Amanha
+5,-22.9133,-43.1689,12.5,Maracana
+6,-22.9754,-43.2285,15.0,Jardim Botanico
+7,-22.9547,-43.1672,6.1,Enseada de Botafogo
+8,-22.9917,-43.2531,850.3,Pedra da Gávea
+9,-22.9035,-43.1256,18.4,MAC Niteroi
+10,-22.8150,-43.2450,11.2,Aeroporto Galeao

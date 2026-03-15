@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getPontoDec, getPontoGms, HgeoResult } from '../lib/api';
+import { reverseGeocode, Address } from '../lib/geocoding';
 import { isValidCoordinate, gmsToDec } from '../lib/validation';
 import { Loader2, MapPin, Calculator } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -8,6 +9,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
   const [mode, setMode] = useState<'dec' | 'gms'>('dec');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [address, setAddress] = useState<Address | null>(null);
 
   // Decimal state
   const [lat, setLat] = useState('');
@@ -28,6 +30,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setAddress(null);
 
     try {
       let result: HgeoResult;
@@ -68,6 +71,15 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
         }
       }
 
+      // Reverse geocoding
+      const latNum = mode === 'dec' ? parseFloat(lat) : gmsToDec(parseFloat(glat), parseFloat(mlat), parseFloat(slat));
+      const lonNum = mode === 'dec' ? parseFloat(lon) : gmsToDec(parseFloat(glon), parseFloat(mlon), parseFloat(slon));
+      const addr = await reverseGeocode(latNum, lonNum);
+      if (addr) {
+        setAddress(addr);
+        result.address = addr.displayName;
+      }
+
       onResult(result);
     } catch (err: any) {
       setError(err.message || 'Erro ao converter coordenadas');
@@ -79,7 +91,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors duration-200">
       <div className="flex items-center gap-2 mb-6">
-        <MapPin className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        <MapPin className="w-5 h-5 text-ibge-blue" />
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Conversão de Ponto Único</h2>
       </div>
 
@@ -88,7 +100,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           type="button"
           onClick={() => setMode('dec')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            mode === 'dec' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            mode === 'dec' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Graus Decimais
@@ -97,7 +109,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           type="button"
           onClick={() => setMode('gms')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            mode === 'gms' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            mode === 'gms' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Graus Sexagesimais
@@ -119,7 +131,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                 value={lat}
                 onChange={(e) => setLat(e.target.value)}
                 placeholder="-23.5505"
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
               />
             </div>
             <div>
@@ -130,7 +142,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                 value={lon}
                 onChange={(e) => setLon(e.target.value)}
                 placeholder="-46.6333"
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
               />
             </div>
           </motion.div>
@@ -148,14 +160,14 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={glat}
                   onChange={(e) => setGlat(e.target.value)}
                   placeholder="Graus"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
                   type="number"
                   value={mlat}
                   onChange={(e) => setMlat(e.target.value)}
                   placeholder="Minutos"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
                   type="number"
@@ -163,7 +175,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={slat}
                   onChange={(e) => setSlat(e.target.value)}
                   placeholder="Segundos"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
               </div>
             </div>
@@ -175,14 +187,14 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={glon}
                   onChange={(e) => setGlon(e.target.value)}
                   placeholder="Graus"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
                   type="number"
                   value={mlon}
                   onChange={(e) => setMlon(e.target.value)}
                   placeholder="Minutos"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
                   type="number"
@@ -190,7 +202,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={slon}
                   onChange={(e) => setSlon(e.target.value)}
                   placeholder="Segundos"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
               </div>
             </div>
@@ -208,7 +220,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
               value={altitude}
               onChange={(e) => setAltitude(e.target.value)}
               placeholder="Ex: 850.5"
-              className="w-full pl-4 pr-16 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors outline-none"
+              className="w-full pl-4 pr-16 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue transition-colors outline-none"
             />
             <span className="absolute right-4 top-2.5 text-slate-400 text-sm">metros</span>
           </div>
@@ -223,10 +235,17 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           </div>
         )}
 
+        {address && (
+          <div className="p-3 bg-ibge-blue/5 dark:bg-ibge-blue/20 text-ibge-blue dark:text-ibge-light-blue rounded-lg text-sm">
+            <p className="font-semibold mb-1">Localização aproximada:</p>
+            <p>{address.displayName}</p>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+          className="w-full bg-ibge-blue hover:bg-ibge-blue/90 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Calcular Altitude'}
         </button>
