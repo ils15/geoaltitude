@@ -1,121 +1,121 @@
 import React from 'react';
-import { Info, ArrowRight, Satellite, Mountain, BookOpen, Lightbulb } from 'lucide-react';
+import { Info, ArrowRight, Satellite, Mountain, BookOpen, ShieldCheck, Zap, Globe } from 'lucide-react';
 
 export function Explanation() {
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 transition-colors duration-200">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-          <Info className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-          Entenda a Conversão de Altitude
-        </h2>
-        <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed text-lg">
-          O modelo <strong className="text-slate-900 dark:text-white">hgeoHNOR2020</strong> do IBGE permite converter a altitude obtida por receptores GPS/GNSS (Altitude Geométrica) na altitude física real (Altitude Ortométrica), que é referenciada ao nível médio do mar (Marégrafo de Imbituba).
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col items-center text-center transition-colors">
-            <Satellite className="w-10 h-10 text-blue-500 dark:text-blue-400 mb-4" />
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Altitude Geométrica (h)</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Medida em relação ao elipsoide de referência matemático (como SAD69 ou SIRGAS2000). É a altitude bruta que o seu GPS fornece.</p>
+    <div className="space-y-8 max-w-5xl mx-auto pb-20">
+      {/* Header Section */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-ibge-blue/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-ibge-blue p-2.5 rounded-2xl">
+              <BookOpen className="w-6 h-6 text-white" />
+            </div>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              Documentação Técnica & Geodésia
+            </h2>
           </div>
-          <div className="flex items-center justify-center">
-            <ArrowRight className="w-10 h-10 text-slate-300 dark:text-slate-600 hidden md:block" />
-            <div className="md:hidden h-10 w-[2px] bg-slate-200 dark:bg-slate-700 my-2"></div>
-          </div>
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-xl border border-indigo-100 dark:border-indigo-800/30 flex flex-col items-center text-center transition-colors">
-            <Mountain className="w-10 h-10 text-indigo-600 dark:text-indigo-400 mb-4" />
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Altitude Ortométrica (H)</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Medida em relação ao geoide (nível médio do mar). É a altitude real física utilizada em projetos de engenharia e topografia.</p>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 dark:bg-slate-950 text-white p-8 rounded-xl relative overflow-hidden mb-10 border border-slate-800">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-20 -translate-y-1/2 translate-x-1/3"></div>
           
-          <h3 className="font-medium mb-4 text-indigo-300 text-lg">A Fórmula de Conversão</h3>
-          <div className="text-4xl md:text-5xl font-mono mb-6 font-bold tracking-tight">H = h - N</div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm border border-white/10">
-              <strong className="text-indigo-300 block mb-1 text-lg">H</strong>
-              <span className="text-slate-300">Altitude Ortométrica (o que você quer descobrir)</span>
-            </div>
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm border border-white/10">
-              <strong className="text-blue-300 block mb-1 text-lg">h</strong>
-              <span className="text-slate-300">Altitude Geométrica (o que o GPS mediu)</span>
-            </div>
-            <div className="bg-indigo-600/40 p-4 rounded-lg backdrop-blur-sm border border-indigo-400/30">
-              <strong className="text-white block mb-1 text-lg">N</strong>
-              <span className="text-indigo-100">Ondulação Geoidal (o fator calculado por este sistema)</span>
-            </div>
-          </div>
-        </div>
+          <p className="text-slate-600 dark:text-slate-300 mb-10 leading-relaxed text-xl max-w-3xl">
+            O GeoAlt utiliza o modelo <strong className="text-ibge-blue dark:text-ibge-light-blue">hgeoHNOR2020</strong>, o padrão oficial do Sistema Geodésico Brasileiro (SGB). Esta tecnologia permite a determinação da altitude física (Ortométrica) a partir de coordenadas espaciais.
+          </p>
 
-        <hr className="border-slate-200 dark:border-slate-800 my-10" />
-
-        <div className="space-y-8">
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              Como Interpretar a Ondulação Geoidal (N)
-            </h3>
-            <div className="prose prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-slate-300">
-              <p>
-                A <strong className="text-slate-900 dark:text-white">Ondulação Geoidal (N)</strong> representa a distância vertical entre o geoide (nível do mar) e o elipsoide (modelo matemático da Terra) em um ponto específico.
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <Satellite className="w-5 h-5 text-ibge-blue" />
+                Referencial Matemático (SIRGAS2000)
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
+                As medições efetuadas por GNSS são referenciadas a um elipsoide (modelo matemático), resultando na <strong>Altitude Geométrica (h)</strong>. Este valor não reflete a realidade física da gravidade e não deve ser usado em projetos de engenharia hidráulica ou saneamento.
               </p>
-              <ul className="list-disc pl-5 space-y-2 mt-4">
-                <li>
-                  <strong className="text-slate-900 dark:text-white">Se N for negativo:</strong> Significa que o geoide está <em>abaixo</em> do elipsoide naquele local. Ao aplicar a fórmula <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded text-slate-800 dark:text-slate-200">H = h - (-N)</code>, a altitude ortométrica (H) será <strong className="text-slate-900 dark:text-white">maior</strong> que a altitude geométrica (h).
-                </li>
-                <li>
-                  <strong className="text-slate-900 dark:text-white">Se N for positivo:</strong> Significa que o geoide está <em>acima</em> do elipsoide. Ao aplicar a fórmula <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded text-slate-800 dark:text-slate-200">H = h - (+N)</code>, a altitude ortométrica (H) será <strong className="text-slate-900 dark:text-white">menor</strong> que a altitude geométrica (h).
-                </li>
-              </ul>
-              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 rounded-lg text-blue-800 dark:text-blue-300 text-sm">
-                <strong className="text-blue-900 dark:text-blue-200">Dica:</strong> No Brasil, a ondulação geoidal varia aproximadamente entre -10 metros (no Nordeste) e -20 metros (no Sul). Portanto, a altitude ortométrica (H) costuma ser sempre maior que a altitude lida no GPS (h).
-              </div>
+            </div>
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <Mountain className="w-5 h-5 text-ibge-green" />
+                Referencial Físico (Geoide)
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
+                A <strong>Altitude Ortométrica (H)</strong> é a distância contada ao longo da linha vertical entre o ponto e o geoide (Nível Médio do Mar). No Brasil, o referencial principal é o <strong>Marégrafo de Imbituba (SC)</strong>.
+              </p>
             </div>
           </div>
-
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-amber-500" />
-              Exemplos Práticos de Uso
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 rounded-xl shadow-sm transition-colors">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-2">1. Topografia e Engenharia Civil</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Ao projetar rodovias, canais de irrigação ou redes de esgoto, a água flui de acordo com a gravidade (nível do mar). Usar a altitude do GPS sem conversão pode resultar em cálculos de declividade incorretos, fazendo com que a água não escoe.
-                </p>
-              </div>
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 rounded-xl shadow-sm transition-colors">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-2">2. Georreferenciamento de Imóveis (INCRA)</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  A legislação brasileira exige que o georreferenciamento de propriedades rurais utilize altitudes referenciadas ao Marégrafo de Imbituba. O modelo hgeoHNOR2020 é o padrão oficial obrigatório para essa conversão.
-                </p>
-              </div>
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 rounded-xl shadow-sm transition-colors">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-2">3. Mapeamento com Drones (VANTs)</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Drones capturam imagens com coordenadas e altitudes geométricas. Para gerar Modelos Digitais de Terreno (MDT) precisos e compatíveis com mapas oficiais, é necessário aplicar a ondulação geoidal aos pontos de controle.
-                </p>
-              </div>
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 rounded-xl shadow-sm transition-colors">
-                <h4 className="font-semibold text-slate-900 dark:text-white mb-2">4. Agricultura de Precisão</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Sistemas de nivelamento de solo e drenagem agrícola dependem de altitudes ortométricas corretas para otimizar o uso da água e evitar áreas de alagamento nas lavouras.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-10 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-400 text-sm text-center transition-colors">
-          O modelo hgeoHNOR2020 é o modelo oficial brasileiro para conversão de altitudes, substituindo o antigo MAPGEO2015.
         </div>
       </div>
+
+      {/* Formula & Calculation Section */}
+      <div className="bg-slate-900 dark:bg-black rounded-3xl p-10 border border-slate-800 shadow-2xl">
+        <div className="flex flex-col lg:flex-row items-center gap-12">
+          <div className="flex-1 text-center lg:text-left">
+            <span className="text-ibge-gold font-bold uppercase tracking-[0.2em] text-xs mb-3 block">Equação de Redução Geodética</span>
+            <div className="text-5xl md:text-7xl font-mono font-black text-white mb-6 tracking-tighter">
+              H = h - N
+            </div>
+            <p className="text-slate-400 text-sm max-w-md">
+              A conversão subtrai a <strong>Ondulação Geoidal (N)</strong> da leitura bruta do GPS. O GeoAlt automatiza este cálculo consultando as grades de alta resolução do IBGE.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full lg:w-3/5">
+            <MetricCard label="H" sub="Ortométrica" color="border-ibge-green" />
+            <MetricCard label="h" sub="Geométrica" color="border-ibge-blue" />
+            <MetricCard label="N" sub="Ondulação" color="border-ibge-gold" />
+          </div>
+        </div>
+      </div>
+
+      {/* Technical Specs & Privacy */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+            <Globe className="w-5 h-5 text-ibge-blue" />
+            Especificações Técnicas
+          </h3>
+          <div className="space-y-4 text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">Modelo Principal</span>
+              <span className="font-mono text-ibge-blue">hgeoHNOR2020</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">Datum de Referência</span>
+              <span className="font-mono text-ibge-blue">SIRGAS2000 / WGS84</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">Vertical Datum</span>
+              <span className="font-mono text-ibge-blue">Imbituba (SC) / Santana (AP)</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">API Provider</span>
+              <span className="font-mono text-ibge-blue">IBGE Service v1</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-8 border border-slate-200 dark:border-slate-700 shadow-sm">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-ibge-green" />
+            Privacidade
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+            O GeoAlt opera sob uma política de <strong>Retenção Zero</strong>. Suas coordenadas e arquivos CSV são processados de forma efêmera. Nenhuma informação de projeto é armazenada em nossos bancos de dados após o processamento.
+          </p>
+          <div className="flex items-center gap-2 text-[10px] font-bold text-ibge-blue uppercase tracking-wider">
+            <Zap className="w-3 h-3" />
+            100% Client-Side Ready
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, sub, color }: { label: string, sub: string, color: string }) {
+  return (
+    <div className={`bg-white/5 dark:bg-white/5 border-2 ${color} p-6 rounded-2xl text-center backdrop-blur-sm`}>
+      <span className="text-3xl font-black text-white block mb-1">{label}</span>
+      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{sub}</span>
     </div>
   );
 }

@@ -1,77 +1,49 @@
-# GeoAlt | Inteligência Geográfica de Precisão 🌍
+# GeoAlt | Enterprise Geodetic Solution 🌐
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-6.2-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Model: hgeoHNOR2020](https://img.shields.io/badge/IBGE-hgeoHNOR2020-green)](https://www.ibge.gov.br/)
+[![Standards: SIRGAS2000](https://img.shields.io/badge/Geodesy-SIRGAS2000-gold)](https://www.sirgas.org/)
 
-**GeoAlt** é uma plataforma profissional para conversão de altitudes geodésicas baseada no modelo **hgeoHNOR2020** do IBGE. Desenvolvida para engenheiros, agrimensores e profissionais da geoinformação que buscam precisão, velocidade e uma interface intuitiva.
-
----
-
-## ✨ Principais Diferenciais
-
-### 1. 🚀 Alta Performance em Lote
-Processe milhares de coordenadas simultaneamente via upload de CSV, com mapeamento inteligente de colunas e geocodificação reversa automática (OpenStreetMap).
-
-### 2. 🗺️ Inteligência de Mapa Avançada
-- **Clustering de Marcadores**: Visualização fluida de grandes conjuntos de dados.
-- **Cores por Altitude**: Identificação visual instantânea da topografia (Azul < 100m, Verde < 500m, Âmbar < 1000m, Vermelho > 1000m).
-- **Rede RBMC**: Camada integrada com as estações da Rede Brasileira de Monitoramento Contínuo (IBGE) com links diretos para dados operacionais.
-- **Suporte a Shapefiles**: Sobreponha áreas de projeto (.zip) diretamente no mapa.
-
-### 3. 📊 Análise Espacial MDT
-Gráfico de dispersão dinâmica para análise de pontos não alinhados, permitindo comparar visualmente a Altitude Geométrica (h), Ortométrica (H) e a Ondulação Geoidal (N).
-
-### 4. 📄 Relatórios Profissionais
-Geração de laudos técnicos em PDF com mapas, coordenadas detalhadas e data/hora, prontos para anexar a processos e projetos.
+**GeoAlt** é uma plataforma de inteligência geográfica projetada para a conversão de alta precisão entre altitudes geométricas (GNSS) e ortométricas. Utilizando o motor oficial **hgeoHNOR2020** do IBGE, o sistema provê a ponte fundamental entre a medição satelital e a realidade física do terreno.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🏗️ Arquitetura e Fluxo de Dados
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS, Motion (framer-motion).
-- **Mapas**: Leaflet, React-Leaflet, MarkerCluster, WMS IBGE.
-- **Dados**: Papaparse (CSV), shpjs (Shapefiles), Recharts (Gráficos).
-- **Exportação**: jsPDF, html2canvas (Relatórios).
-
----
-
-## 🚀 Como Rodar o Projeto
-
-### Pré-requisitos
-- Node.js (v18 ou superior)
-- npm ou yarn
-
-### Instalação
-```bash
-# Clone o repositório
-git clone https://github.com/seu-usuario/geoaltitude.git
-
-# Entre na pasta
-cd geoaltitude
-
-# Instale as dependências
-npm install
-
-# Inicie o servidor de desenvolvimento
-npm run dev
+```mermaid
+graph TD
+    A[Upload CSV/Shapefile] --> B{Validação & Mapping}
+    B --> C[Processamento em Lote]
+    C --> D[API IBGE hgeoHNOR2020]
+    D --> E[Geocodificação Reversa OSM]
+    E --> F[Dashboard de Análise Espacial]
+    F --> G[Relatórios PDF & Exportação]
 ```
 
+## 📐 Fundamentos Geodéticos
+
+O GeoAlt resolve a complexidade da ondulação geoidal brasileira. Enquanto receptores GNSS medem a distância até o elipsoide matemático (**h**), projetos de engenharia exigem a altitude referenciada ao nível médio do mar (**H**).
+
+**Equação Fundamental:**  
+`H = h - N`
+
+Onde:
+- **H**: Altitude Ortométrica (Nível Médio do Mar / Imbituba)
+- **h**: Altitude Geométrica (GNSS / SIRGAS2000)
+- **N**: Ondulação Geoidal (Modelo hgeoHNOR2020)
+
+## 🛡️ Privacidade e Segurança de Dados
+
+O GeoAlt foi desenvolvido com foco absoluto em privacidade industrial:
+- **Zero Data Retention**: Seus dados de coordenadas não são armazenados em nossos servidores.
+- **Client-Side Heavy**: O processamento de arquivos (CSV/Shapefile) e a geração de relatórios ocorrem diretamente no seu navegador.
+- **Transparência**: Conexões externas são realizadas exclusivamente com as APIs oficiais do IBGE e OpenStreetMap (Nominatim).
+
 ---
 
-## 📜 Licença
+## 📜 Licença e Conformidade
 
-Este projeto está licenciado sob a **Apache License 2.0** - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
----
-
-## 📧 Contato & Suporte
-
-Desenvolvido para transformar dados geodésicos em decisões estratégicas. 
-
-> [!IMPORTANT]
-> Os cálculos de altitude baseiam-se na API oficial do IBGE (hgeoHNOR2020). Certifique-se da precisão dos seus dados de entrada (Latitude/Longitude em SIRGAS2000).
+Este software é distribuído sob a **Apache License 2.0**. Ele está em total conformidade com as normas técnicas brasileiras para georreferenciamento e topografia.
 
 ---
-*GeoAlt - Precisão que mapeia o futuro.*
+*GeoAlt - Precisão Milimétrica para Grandes Decisões.*
