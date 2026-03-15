@@ -30,10 +30,62 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+function toDms(value: number, isLatitude: boolean) {
+  const absolute = Math.abs(value);
+  const degrees = Math.floor(absolute);
+  const minutesFloat = (absolute - degrees) * 60;
+  const minutes = Math.floor(minutesFloat);
+  const seconds = (minutesFloat - minutes) * 60;
+  const hemisphere = isLatitude ? (value >= 0 ? 'N' : 'S') : (value >= 0 ? 'E' : 'W');
+  return `${degrees}° ${minutes}' ${seconds.toFixed(2)}\" ${hemisphere}`;
+}
+
+function formatCoordinate(rawValue: string, isLatitude: boolean) {
+  const numeric = Number.parseFloat(rawValue);
+  if (!Number.isFinite(numeric)) {
+    return { decimal: rawValue, dms: '-' };
+  }
+
+  return {
+    decimal: numeric.toFixed(6),
+    dms: toDms(numeric, isLatitude),
+  };
+}
+
+function splitAddress(address?: string) {
+  if (!address) {
+    return { summary: '-', full: '' };
+  }
+
+  const cleanParts = address
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  return {
+    summary: cleanParts.slice(0, 2).join(', ') || address,
+    full: cleanParts.join(', '),
+  };
+}
+
 export function ResultsView({ results }: { results: HgeoResult[] }) {
   const [view, setView] = React.useState<'table' | 'map'>('table');
+  const [addressModal, setAddressModal] = React.useState<{ title: string; full: string } | null>(null);
+  const [currentPage, setCurrentPage] = React.useState(1);
+
+  const rowsPerPage = 15;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setAddressModal(null);
+  }, [results]);
 
   if (results.length === 0) return null;
+
+  const totalPages = Math.max(1, Math.ceil(results.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIdx = (safePage - 1) * rowsPerPage;
+  const paginatedResults = results.slice(startIdx, startIdx + rowsPerPage);
 
   const centerLat = results.reduce((acc, curr) => acc + parseFloat(curr.lat), 0) / results.length;
   const centerLon = results.reduce((acc, curr) => acc + parseFloat(curr.long), 0) / results.length;
@@ -171,8 +223,8 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white font-medium border-b border-slate-200 dark:border-slate-700">
               <tr>
-                <th className="px-6 py-3">Latitude</th>
-                <th className="px-6 py-3">Longitude</th>
+                <th className="px-6 py-3">Latitude (Dec / GMS)</th>
+                <th className="px-6 py-3">Longitude (Dec / GMS)</th>
                 <th className="px-6 py-3">Altitude (h)</th>
                 <th className="px-6 py-3">Ondulação (N)</th>
                  <th className="px-6 py-3">Altitude (H)</th>
@@ -188,20 +240,77 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                       <SkeletonRow />
                       <SkeletonRow />
                     </>
-                  ) : results.map((res, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="px-6 py-3 font-mono text-xs">{res.lat}</td>
-                  <td className="px-6 py-3 font-mono text-xs">{res.long}</td>
-                  <td className="px-6 py-3 font-mono text-xs">{res.h !== undefined ? `${res.h.toFixed(3)}m` : '-'}</td>
-                  <td className="px-6 py-3 font-medium text-ibge-blue dark:text-ibge-light-blue">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</td>
-                   <td className="px-6 py-3 font-mono text-xs font-medium text-ibge-green">{res.H !== undefined ? `${res.H.toFixed(3)}m` : '-'}</td>
-                  <td className="px-6 py-3 text-xs max-w-xs truncate" title={res.address}>{res.address || '-'}</td>
-                  <td className="px-6 py-3">{res.incerteza}{typeof res.incerteza === 'number' ? 'm' : ''}</td>
-                  <td className="px-6 py-3 text-xs">{res.modelo}</td>
-                </tr>
-              ))}
+                  ) : paginatedResults.map((res, idx) => (
+                    <tr key={startIdx + idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      {(() => {
+                        const latDisplay = formatCoordinate(res.lat, true);
+                        const lonDisplay = formatCoordinate(res.long, false);
+                        const addressDisplay = splitAddress(res.address);
+                        const rowLabel = `Ponto ${startIdx + idx + 1}`;
+
+                        return (
+                          <>
+                            <td className="px-6 py-3 font-mono text-xs">
+                              <p>{latDisplay.decimal}°</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">{latDisplay.dms}</p>
+                            </td>
+                            <td className="px-6 py-3 font-mono text-xs">
+                              <p>{lonDisplay.decimal}°</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">{lonDisplay.dms}</p>
+                            </td>
+                            <td className="px-6 py-3 font-mono text-xs">{res.h !== undefined ? `${res.h.toFixed(3)}m` : '-'}</td>
+                            <td className="px-6 py-3 font-medium text-ibge-blue dark:text-ibge-light-blue">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</td>
+                            <td className="px-6 py-3 font-mono text-xs font-medium text-ibge-green">{res.H !== undefined ? `${res.H.toFixed(3)}m` : '-'}</td>
+                            <td className="px-6 py-3 text-xs max-w-md align-top">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <p className="font-medium text-slate-800 dark:text-slate-200 truncate" title={addressDisplay.summary}>{addressDisplay.summary}</p>
+                                {addressDisplay.full && addressDisplay.full !== '-' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setAddressModal({ title: rowLabel, full: addressDisplay.full })}
+                                    className="text-[11px] text-ibge-blue dark:text-ibge-light-blue hover:underline shrink-0"
+                                  >
+                                    abrir
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-3">{res.incerteza}{typeof res.incerteza === 'number' ? 'm' : ''}</td>
+                            <td className="px-6 py-3 text-xs">{res.modelo}</td>
+                          </>
+                        );
+                      })()}
+                    </tr>
+                  ))}
             </tbody>
           </table>
+
+          {results.length > rowsPerPage && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Mostrando {startIdx + 1}-{Math.min(startIdx + rowsPerPage, results.length)} de {results.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={safePage === 1}
+                  onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                  className="px-2.5 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{safePage}/{totalPages}</span>
+                <button
+                  type="button"
+                  disabled={safePage === totalPages}
+                  onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                  className="px-2.5 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 disabled:opacity-40"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="h-[500px] w-full relative z-0">
@@ -215,15 +324,14 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             {results.map((res, idx) => (
-              <Marker 
-                key={idx} 
-                position={[parseFloat(res.lat), parseFloat(res.long)]}
-              >
+              <Marker key={idx} position={[parseFloat(res.lat), parseFloat(res.long)]}>
                 <Popup>
                   <div className="text-sm dark:text-slate-800">
                     <p className="font-semibold mb-1">Ponto {idx + 1}</p>
-                    <p><strong>Lat:</strong> {res.lat}</p>
-                    <p><strong>Lon:</strong> {res.long}</p>
+                    <p><strong>Lat:</strong> {formatCoordinate(res.lat, true).decimal}°</p>
+                    <p><strong>Lon:</strong> {formatCoordinate(res.long, false).decimal}°</p>
+                    <p className="text-xs text-slate-500"><strong>Lat (GMS):</strong> {formatCoordinate(res.lat, true).dms}</p>
+                    <p className="text-xs text-slate-500"><strong>Lon (GMS):</strong> {formatCoordinate(res.long, false).dms}</p>
                     {res.h !== undefined && <p><strong>Alt. Geométrica (h):</strong> {res.h.toFixed(3)}m</p>}
                     <p><strong>Ondulação (N):</strong> <span className="text-ibge-blue font-medium">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</span></p>
                      {res.H !== undefined && <p><strong>Alt. Ortométrica (H):</strong> <span className="text-ibge-green font-medium">{res.H.toFixed(3)}m</span></p>}
@@ -234,6 +342,18 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
               </Marker>
             ))}
           </MapContainer>
+        </div>
+      )}
+
+      {addressModal && (
+        <div className="fixed inset-0 z-[1200] bg-slate-900/45 flex items-center justify-center p-4" onClick={() => setAddressModal(null)}>
+          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">{addressModal.title} - Endereço completo</p>
+              <button type="button" onClick={() => setAddressModal(null)} className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white">fechar</button>
+            </div>
+            <p className="text-sm text-slate-700 dark:text-slate-200 break-words">{addressModal.full}</p>
+          </div>
         </div>
       )}
     </div>

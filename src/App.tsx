@@ -92,16 +92,23 @@ export default function App() {
           )}
 
           {activeTab === 'upload' && (
-            <motion.div key="upload" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-4 space-y-6">
-                <div className="mb-2">
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Processamento em Lote</h2>
-                  <p className="text-slate-600 dark:text-slate-400">Faça upload de um CSV com milhares de pontos.</p>
-                </div>
-                <BatchUpload onBatchResult={handleBatchResult} />
-                <ShapefileUpload onShapefileLoaded={setShapefileData} />
+            <motion.div key="upload" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+              <div className="mb-2">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Processamento em Lote</h2>
+                <p className="text-slate-600 dark:text-slate-400">Faça upload de um CSV com milhares de pontos.</p>
               </div>
-              <div className="lg:col-span-8">
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <BatchUpload onBatchResult={handleBatchResult} />
+                </div>
+
+                <div className="space-y-6">
+                  <ShapefileUpload onShapefileLoaded={setShapefileData} />
+                </div>
+              </div>
+
+              <div>
                 {results.length > 0 ? (
                   <ResultsView results={results} />
                 ) : (

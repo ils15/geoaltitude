@@ -39,6 +39,31 @@ O GeoAlt foi desenvolvido com foco absoluto em privacidade industrial:
 - **Client-Side Heavy**: O processamento de arquivos (CSV/Shapefile) e a geração de relatórios ocorrem diretamente no seu navegador.
 - **Transparência**: Conexões externas são realizadas exclusivamente com as APIs oficiais do IBGE e OpenStreetMap (Nominatim).
 
+## 📊 Biblioteca de Gráficos (Frontend)
+
+A visualização dos dashboards é construída com **React + Recharts**, com foco em leitura geoespacial e contexto topografico.
+
+### Componentes Implementados
+
+- **Perfil de Elevação (Perfil H)**
+    - Eixo horizontal em distancia acumulada (km), calculada por Haversine
+    - Camada dupla: **H** como area com gradiente e **h** como linha pontilhada
+    - Exibe de forma visual a relacao geodesica entre h, H e ondulacao geoidal (N)
+
+- **Planimetria (XY)**
+    - Trajeto em coordenadas geograficas com colorizacao por altitude
+    - Escala cromatica continua para reforcar mudancas altimetricas
+    - Proporcao espacial ajustada para reduzir distorcoes visuais da rota
+
+- **Polimento Visual**
+    - Grid horizontal sutil (sem linhas verticais)
+    - Destaque de ponto apenas no hover com tooltip tecnico
+    - Nota tecnica orientando o uso do modo mapa para projecao cartografica fiel
+
+### Referencia de Implementacao
+
+- `src/components/StatsDashboard.tsx`
+
 ---
 
 ## 📜 Licença e Conformidade
