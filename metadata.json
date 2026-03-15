@@ -1,0 +1,5 @@
+{
+  "name": "GeoAlt",
+  "description": "Conversão de Altitude hgeoHNOR usando a API do IBGE",
+  "requestFramePermissions": []
+}
