@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { getPontoDec, getPontoGms, HgeoResult } from '../lib/api';
-import { reverseGeocode, Address } from '../lib/geocoding';
+import { forwardGeocode, reverseGeocode, Address, ForwardGeocodeResult } from '../lib/geocoding';
 import { isValidCoordinate, gmsToDec } from '../lib/validation';
-import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
-import { Loader2, MapPin, Calculator } from 'lucide-react';
+import { orthometricHeight, parseFatorConversao, decToDmsParts } from '../lib/geodesy';
+import { Loader2, MapPin, Calculator, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) => void }) {
@@ -26,6 +26,37 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
 
   // Altitude state
   const [altitude, setAltitude] = useState('');
+
+  // Busca de endereço (Nominatim/OSM)
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState<ForwardGeocodeResult[] | null>(null);
+  const [placeSearching, setPlaceSearching] = useState(false);
+
+  const buscarEndereco = async () => {
+    if (!placeQuery.trim()) return;
+    setPlaceSearching(true);
+    const results = await forwardGeocode(placeQuery);
+    setPlaceSearching(false);
+    setPlaceResults(results && results.length > 0 ? results : []);
+  };
+
+  const escolherEndereco = (r: ForwardGeocodeResult) => {
+    if (mode === 'dec') {
+      setLat(r.lat.toFixed(6));
+      setLon(r.lon.toFixed(6));
+    } else {
+      const pLat = decToDmsParts(r.lat, true);
+      const pLon = decToDmsParts(r.lon, false);
+      setGlat(pLat.hemisphere === 'S' ? String(-pLat.degrees) : String(pLat.degrees));
+      setMlat(String(pLat.minutes));
+      setSlat(pLat.seconds.toFixed(2));
+      setGlon(pLon.hemisphere === 'W' ? String(-pLon.degrees) : String(pLon.degrees));
+      setMlon(String(pLon.minutes));
+      setSlon(pLon.seconds.toFixed(2));
+    }
+    setPlaceResults(null);
+    setPlaceQuery(r.displayName.split(',')[0]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +146,51 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
         >
           Graus Sexagesimais
         </button>
+      </div>
+
+      <div className="mb-6 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-center">
+          <div className="relative">
+            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" aria-hidden="true" />
+            <input
+              type="text"
+              value={placeQuery}
+              onChange={e => setPlaceQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarEndereco(); } }}
+              placeholder="Buscar endereço ou lugar (OpenStreetMap)"
+              aria-label="Buscar endereço ou lugar"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={buscarEndereco}
+            disabled={placeSearching}
+            className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-70 flex items-center justify-center gap-1.5 whitespace-nowrap"
+          >
+            {placeSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            Buscar
+          </button>
+        </div>
+        {placeResults && (
+          placeResults.length === 0 ? (
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Nenhum lugar encontrado.</p>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {placeResults.map((r, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => escolherEndereco(r)}
+                  title={r.displayName}
+                  className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-ibge-blue dark:hover:border-ibge-light-blue transition-colors truncate max-w-full"
+                >
+                  {r.displayName.split(',').slice(0, 3).join(', ')}
+                </button>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

@@ -55,13 +55,14 @@ export function gmsToDec(g: number, m: number, s: number): number {
 }
 
 /**
- * Formata graus decimais como GMS. Arredonda os segundos para 2 casas e
- * propaga o estouro (59.999" → 1'00") em vez de exibir 60".
+ * Decompõe graus decimais em graus/minutos/segundos + hemisfério.
+ * Arredonda os segundos para 2 casas e propaga o estouro (59.999" → 1'00").
  */
-export function decToDms(value: number, isLatitude: boolean): string {
-  const hemisphere = isLatitude
-    ? value >= 0 ? 'N' : 'S'
-    : value >= 0 ? 'E' : 'W';
+export function decToDmsParts(
+  value: number,
+  isLatitude: boolean
+): { degrees: number; minutes: number; seconds: number; hemisphere: 'N' | 'S' | 'E' | 'W' } {
+  const hemisphere = isLatitude ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';
   const absolute = Math.abs(value);
   let degrees = Math.floor(absolute);
   const minutesFloat = (absolute - degrees) * 60;
@@ -75,6 +76,12 @@ export function decToDms(value: number, isLatitude: boolean): string {
     minutes = 0;
     degrees += 1;
   }
+  return { degrees, minutes, seconds, hemisphere };
+}
+
+/** Formata graus decimais como GMS (usa decToDmsParts). */
+export function decToDms(value: number, isLatitude: boolean): string {
+  const { degrees, minutes, seconds, hemisphere } = decToDmsParts(value, isLatitude);
   return `${degrees}° ${String(minutes).padStart(2, '0')}' ${seconds.toFixed(2).padStart(5, '0')}" ${hemisphere}`;
 }
 

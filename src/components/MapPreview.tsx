@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, FeatureGroup, WMSTileLayer, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, FeatureGroup, WMSTileLayer, GeoJSON, Polyline } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import { HgeoResult } from '../lib/api';
 import { fetchRBMCStations, RBMCStation } from '../lib/rbmc';
@@ -93,6 +93,7 @@ const rbmcIcon = new L.Icon({
 export function MapPreview({ points, shapefileData }: { points: HgeoResult[], shapefileData?: any }) {
   const [rbmcStations, setRbmcStations] = useState<RBMCStation[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [connectPoints, setConnectPoints] = useState(false);
 
   const upsertMeasurement = (layer: L.Layer) => {
     const m = measureLayer(layer);
@@ -140,7 +141,21 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
         </div>
         
         <div className="flex items-center gap-2">
-          <button 
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={connectPoints}
+              onChange={e => setConnectPoints(e.target.checked)}
+              className="accent-ibge-light-blue"
+            />
+            Ligar pontos
+            {connectPoints && points.length > 1 && (
+              <span className="font-mono text-ibge-blue dark:text-ibge-light-blue">
+                ≈ {(polylineLength(points.map(p => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long) }))) / 1000).toFixed(2)} km
+              </span>
+            )}
+          </label>
+          <button
             onClick={() => exportCSV(points)} 
             className="flex items-center gap-1.5 px-3 py-1.5 bg-ibge-blue text-white rounded-md text-sm font-bold hover:bg-ibge-blue/90 transition-all cursor-pointer shadow-sm active:scale-95 shadow-ibge-blue/20"
           >
@@ -249,6 +264,13 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
             )}
           </LayersControl>
 
+          {connectPoints && points.length > 1 && (
+            <Polyline
+              positions={points.map(p => [parseFloat(p.lat), parseFloat(p.long)] as [number, number])}
+              pathOptions={{ color: '#00a1e4', weight: 2.5, dashArray: '6 8', opacity: 0.9 }}
+            />
+          )}
+
           <FeatureGroup>
             <EditControl
               position="topleft"
@@ -271,8 +293,7 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
           </FeatureGroup>
 
           {measurements.length > 0 && (
-            <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3 max-w-xs text-sm">
-              <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3 max-w-xs text-sm">              <div className="flex items-center justify-between gap-4 mb-2">
                 <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Ruler className="w-4 h-4 text-ibge-blue" />
                   Medições do desenho
@@ -296,6 +317,20 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
               </ul>
             </div>
           )}
+
+          <div className="absolute bottom-4 right-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3 text-[11px]">
+            <p className="font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[10px] mb-1.5">
+              Altitude ortométrica (H)
+            </p>
+            <div className="space-y-1">
+              {([['#3b82f6', '< 100 m'], ['#10b981', '100 – 500 m'], ['#f59e0b', '500 – 1.000 m'], ['#ef4444', '≥ 1.000 m'], ['#64748b', 'sem H']] as Array<[string, string]>).map(([color, label]) => (
+                <div key={label} className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} aria-hidden="true" />
+                  {label}
+                </div>
+              ))}
+            </div>
+          </div>
 
           <MarkerClusterGroup
             chunkedLoading

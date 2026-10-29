@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   gmsToDec,
   decToDms,
+  decToDmsParts,
   parseDmsString,
   geographicToUTM,
   utmToGeographic,
@@ -141,6 +142,16 @@ describe('GMS ↔ graus decimais', () => {
     expect(decToDms(-43.1729, false)).toBe('43° 10\' 22.44" W');
     // 22° 54' 59.999" não pode virar "59.99 → 60.00\""
     expect(decToDms(gmsToDec(-22, 54, 59.999), true)).toBe('22° 55\' 00.00" S');
+  });
+
+  it('decToDmsParts decompõe para preencher campos GMS (sinal no hemisfério)', () => {
+    const lat = decToDmsParts(-22.90802778, true);
+    expect(lat).toEqual({ degrees: 22, minutes: 54, seconds: 28.9, hemisphere: 'S' });
+    const lon = decToDmsParts(-46.6333, false);
+    expect(lon.hemisphere).toBe('W');
+    // round trip: recompor com gmsToDec devolve o valor original
+    expect(gmsToDec(lat.hemisphere === 'S' ? -lat.degrees : lat.degrees, lat.minutes, lat.seconds)).toBeCloseTo(-22.90802778, 7);
+    expect(gmsToDec(lon.hemisphere === 'W' ? -lon.degrees : lon.degrees, lon.minutes, lon.seconds)).toBeCloseTo(-46.6333, 7);
   });
 
   it('parseDmsString aceita formatos comuns no Brasil', () => {

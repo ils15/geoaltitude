@@ -2,7 +2,10 @@ import React, { Suspense, lazy, useState } from 'react';
 import { HgeoResult } from '../lib/api';
 import {
   Area,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
   Legend,
   Line,
@@ -13,14 +16,18 @@ import {
   YAxis,
 } from 'recharts';
 import type { Config, Data, Layout } from 'plotly.js';
-import { TrendingUp, ArrowUp, ArrowDown, Activity, Box, Map as MapIcon } from 'lucide-react';
+import { TrendingUp, ArrowUp, ArrowDown, Activity, BarChart3, Box, Map as MapIcon } from 'lucide-react';
 import { haversineDistance, parseFatorConversao, projectLocalEN } from '../lib/geodesy';
 
 // plotly.js é pesado (~5 MB) e só é usado na visão 3D — carregado sob demanda
 const Plot = lazy(() => import('react-plotly.js'));
 
+const N_COLOR_NEGATIVE = '#00a1e4'; // N < 0 (geóide abaixo do elipsoide)
+const N_COLOR_POSITIVE = '#fdb913'; // N ≥ 0 (geóide acima do elipsoide)
+
 export function StatsDashboard({ results }: { results: HgeoResult[] }) {
-  const [viewMode, setViewMode] = useState<'plan' | 'vertical'>('vertical');
+  const [viewMode, setViewMode] = useState<'vertical' | 'discrepancia' | 'plan'>('vertical');
+  const [exaggeration, setExaggeration] = useState(1);
 
   if (results.length < 2) return null;
 
@@ -70,6 +77,10 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const altitudes = points3D.map(point => point.z);
   const minAltitude = altitudes.length > 0 ? Math.min(...altitudes) : 0;
   const maxAltitude = altitudes.length > 0 ? Math.max(...altitudes) : 1;
+
+  // Plano de base e exagero vertical (estica o Z relativo ao plano XY)
+  const zBase = minAltitude - Math.max(2, (maxAltitude - minAltitude) * 0.06);
+  const zr = (z: number) => zBase + (z - zBase) * exaggeration;
 
   const meanLat = points3D.reduce((acc, point) => acc + point.lat, 0) / points3D.length;
   const meanLon = points3D.reduce((acc, point) => acc + point.lon, 0) / points3D.length;
@@ -169,7 +180,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     type: 'mesh3d',
     x: mesh.vertices.map(v => v.x),
     y: mesh.vertices.map(v => v.y),
-    z: mesh.vertices.map(v => v.z),
+    z: mesh.vertices.map(v => zr(v.z)),
     i: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 0)),
     j: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 1)),
     k: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 2)),
@@ -190,12 +201,56 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     hovertemplate: 'X: %{x:.1f} m<br>Y: %{y:.1f} m<br>H: %{z:.1f} m<extra></extra>',
   } as Data;
 
+  // Hastes verticais (estilo sondagem/topografia) do plano de base até cada ponto
+  const stemX: (number | null)[] = [];
+  const stemY: (number | null)[] = [];
+  const stemZ: (number | null)[] = [];
+  pointsMeters.forEach(point => {
+    stemX.push(point.xMeters, point.xMeters, null);
+    stemY.push(point.yMeters, point.yMeters, null);
+    stemZ.push(zr(zBase), zr(point.z), null);
+  });
+
+  const stemsTrace: Data = {
+    type: 'scatter3d',
+    mode: 'lines',
+    x: stemX,
+    y: stemY,
+    z: stemZ,
+    line: {
+      color: pointsMeters.map(point => point.z),
+      colorscale: [
+        [0, '#1e3a8a'],
+        [0.33, '#059669'],
+        [0.66, '#f59e0b'],
+        [1, '#dc2626'],
+      ],
+      cmin: minAltitude,
+      cmax: maxAltitude,
+      width: 4,
+    },
+    showlegend: false,
+    hoverinfo: 'skip',
+  } as Data;
+
+  const basePlaneTrace: Data = {
+    type: 'surface',
+    x: [boundedMinX, boundedMaxX],
+    y: [boundedMinY, boundedMaxY],
+    z: [[zr(zBase), zr(zBase)], [zr(zBase), zr(zBase)]],
+    opacity: 0.15,
+    showscale: false,
+    colorscale: [[0, '#64748b'], [1, '#64748b']],
+    hoverinfo: 'skip',
+    name: 'Plano de base',
+  } as Data;
+
   const controlPointsTrace: Data = {
     type: 'scatter3d',
     mode: 'markers',
     x: pointsMeters.map(point => point.xMeters),
     y: pointsMeters.map(point => point.yMeters),
-    z: pointsMeters.map(point => point.z),
+    z: pointsMeters.map(point => zr(point.z)),
     text: pointsMeters.map(point => {
       const hValue = point.h ?? 0;
       const hOrto = point.H ?? 0;
@@ -246,11 +301,11 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
         range: [boundedMinY, boundedMaxY],
       },
       zaxis: {
-        title: { text: 'Altitude (H) m' },
+        title: { text: exaggeration > 1 ? `Altitude (H) m · exagero ×${exaggeration.toFixed(1)}` : 'Altitude (H) m' },
         showgrid: true,
         gridcolor: 'rgba(148,163,184,0.15)',
         tickformat: '.2f',
-        range: [Math.min(...pointsMeters.map(p => p.z)) - 0.5, Math.max(...pointsMeters.map(p => p.z)) + 0.5],
+        range: [zr(zBase) - 0.5, Math.max(...pointsMeters.map(p => zr(p.z))) + 0.5],
       },
       aspectmode: 'data',
       camera: {
@@ -285,6 +340,25 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
 
     return null;
   };
+
+  const DiscrepancyTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 text-xs">
+          <p className="font-bold mb-1 text-slate-900 dark:text-white">{data.name}</p>
+          <p><span className="text-ibge-blue">Ondulação (N):</span> <span className="font-mono font-bold">{(data.N ?? 0).toFixed(3)} m</span></p>
+          <p className="text-slate-400 mt-1">h − H = N · a discrepância entre o elipsoide e o nível médio do mar</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const nAxisDomain: [number | ((min: number) => number), number | ((max: number) => number)] = [
+    (min: number) => Math.min(-2, Math.floor(min)) - 1,
+    (max: number) => Math.max(2, Math.ceil(max)) + 1,
+  ];
 
   return (
     <div className="space-y-6 mb-8">
@@ -336,6 +410,15 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
               Perfil H
             </button>
             <button
+              onClick={() => setViewMode('discrepancia')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                viewMode === 'discrepancia' ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Discrepância N
+            </button>
+            <button
               onClick={() => setViewMode('plan')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
                 viewMode === 'plan' ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -347,10 +430,27 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
           </div>
         </div>
 
+        {viewMode === 'plan' && (
+          <div className="flex items-center gap-3 mb-3 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold uppercase tracking-wider shrink-0">Exagero vertical</span>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={0.5}
+              value={exaggeration}
+              onChange={e => setExaggeration(parseFloat(e.target.value))}
+              className="flex-1 accent-ibge-blue"
+              aria-label="Exagero vertical"
+            />
+            <span className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue w-9 text-right">×{exaggeration.toFixed(1)}</span>
+          </div>
+        )}
+
         <div className="h-80 w-full">
           {viewMode === 'vertical' ? (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart margin={{ top: 20, right: 20, bottom: 20, left: 12 }} data={profileData}>
+              <ComposedChart margin={{ top: 20, right: 55, bottom: 20, left: 12 }} data={profileData}>
                 <defs>
                   <linearGradient id="hProfileFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#00a859" stopOpacity={0.55} />
@@ -370,6 +470,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                   tick={{ fontSize: 10, fill: '#64748b' }}
                 />
                 <YAxis
+                  yAxisId="y"
                   type="number"
                   name="Altitude"
                   unit=" m"
@@ -379,9 +480,22 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                   tickLine={false}
                   tick={{ fontSize: 10, fill: '#64748b' }}
                 />
+                <YAxis
+                  yAxisId="n"
+                  type="number"
+                  name="Ondulação (N)"
+                  unit=" m"
+                  domain={nAxisDomain}
+                  orientation="right"
+                  tick={{ fontSize: 10, fill: '#00a1e4' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value: number) => value.toFixed(0)}
+                />
                 <Tooltip content={<ProfileTooltip />} cursor={{ stroke: '#1e293b', strokeOpacity: 0.22 }} />
                 <Legend verticalAlign="top" height={34} iconType="line" />
                 <Area
+                  yAxisId="y"
                   type="monotone"
                   name="Altitude Ortométrica (H)"
                   dataKey="H"
@@ -393,6 +507,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                   isAnimationActive
                 />
                 <Line
+                  yAxisId="y"
                   type="monotone"
                   name="Altitude Elipsoidal (h)"
                   dataKey="h"
@@ -404,8 +519,46 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                   connectNulls
                   isAnimationActive
                 />
-                <ReferenceLine y={0} stroke="#64748b" strokeOpacity={0.25} />
+                <Bar yAxisId="n" name="Ondulação (N)" dataKey="N" radius={[3, 3, 0, 0]} maxBarSize={18}>
+                  {profileData.map((entry, i) => (
+                    <Cell key={i} fill={(entry.N ?? 0) >= 0 ? N_COLOR_POSITIVE : N_COLOR_NEGATIVE} fillOpacity={0.85} />
+                  ))}
+                </Bar>
+                <ReferenceLine yAxisId="y" y={0} stroke="#64748b" strokeOpacity={0.25} />
               </ComposedChart>
+            </ResponsiveContainer>
+          ) : viewMode === 'discrepancia' ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart margin={{ top: 20, right: 20, bottom: 10, left: 12 }} data={profileData}>
+                <CartesianGrid vertical={false} stroke="#94a3b8" strokeOpacity={0.14} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={64}
+                />
+                <YAxis
+                  type="number"
+                  name="Ondulação (N)"
+                  unit=" m"
+                  domain={nAxisDomain}
+                  tick={{ fontSize: 10, fill: '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value: number) => value.toFixed(1)}
+                />
+                <Tooltip content={<DiscrepancyTooltip />} cursor={{ fill: 'rgba(0,74,142,0.06)' }} />
+                <ReferenceLine y={0} stroke="#64748b" strokeOpacity={0.5} />
+                <Bar name="Ondulação geoidal (N)" dataKey="N" radius={[3, 3, 0, 0]} maxBarSize={44}>
+                  {profileData.map((entry, i) => (
+                    <Cell key={i} fill={(entry.N ?? 0) >= 0 ? N_COLOR_POSITIVE : N_COLOR_NEGATIVE} fillOpacity={0.9} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-full w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 overflow-hidden">
@@ -416,8 +569,8 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                   </div>
                 }
               >
-                <Plot
-                  data={[meshTrace, controlPointsTrace]}
+              <Plot
+                data={[basePlaneTrace, meshTrace, stemsTrace, controlPointsTrace]}
                   layout={scatter3DLayout}
                   config={scatter3DConfig}
                   useResizeHandler
@@ -431,7 +584,12 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
         
         <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-widest font-bold">
-            Nota Técnica: Representação 3D com {(viewMode === 'plan' ? 'mesh contínuo conectando os pontos medidos em superfície, com coordenadas em metros (projeção cartográfica local). H (Altitude Ortométrica) é a altura acima do Geóide.' : 'perfil vertical (Z) por distância acumulada em km')}. A diferença entre h (Elips.) e H (Ortom.) é a Ondulação Geoidal (N).
+            Nota Técnica: {(viewMode === 'plan'
+              ? 'representação 3D geoespacial: hastes verticais ligam cada ponto ao plano de base (cores por altitude), com exagero vertical ajustável para revelar o relevo. '
+              : viewMode === 'discrepancia'
+                ? 'discrepância altimétrica por ponto: cada barra é a ondulação geoidal N = h − H (azul: geóide abaixo do elipsoide; âmbar: acima). '
+                : 'perfil vertical com distância acumulada (km): H (área), h (linha) e N (barras no eixo secundário) — a diferença entre as duas curvas é a ondulação geoidal. ')}
+            Coordenadas XY em metros (projeção local, plano tangente).
           </p>
         </div>
       </div>

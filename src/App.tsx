@@ -14,7 +14,7 @@ import { Compass, Globe2, UploadCloud, Calculator, Info, Map as MapIcon, History
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster } from 'react-hot-toast';
 
-type Tab = 'map' | 'upload' | 'manual' | 'convert' | 'about';
+type Tab = 'map' | 'upload' | 'convert' | 'about';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('upload');
@@ -58,8 +58,7 @@ export default function App() {
           <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-2xl transition-colors duration-200 border border-slate-200/50 dark:border-slate-700/50 shadow-inner">
             <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<UploadCloud className="w-4 h-4" />} label="Lote (CSV)" />
             <TabButton active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon className="w-4 h-4" />} label="Mapa" />
-            <TabButton active={activeTab === 'manual'} onClick={() => setActiveTab('manual')} icon={<Calculator className="w-4 h-4" />} label="Manual" />
-            <TabButton active={activeTab === 'convert'} onClick={() => setActiveTab('convert')} icon={<Ruler className="w-4 h-4" />} label="Conversões" />
+            <TabButton active={activeTab === 'convert'} onClick={() => setActiveTab('convert')} icon={<Calculator className="w-4 h-4" />} label="Ponto Único & Conversões" />
             <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')} icon={<Info className="w-4 h-4" />} label="Entenda" />
           </nav>
 
@@ -82,8 +81,7 @@ export default function App() {
         <div className="md:hidden border-t border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl px-4 py-3 flex overflow-x-auto gap-2 hide-scrollbar transition-colors duration-200">
             <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<UploadCloud className="w-4 h-4" />} label="Lote" />
             <TabButton active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon className="w-4 h-4" />} label="Mapa" />
-            <TabButton active={activeTab === 'manual'} onClick={() => setActiveTab('manual')} icon={<Calculator className="w-4 h-4" />} label="Manual" />
-            <TabButton active={activeTab === 'convert'} onClick={() => setActiveTab('convert')} icon={<Ruler className="w-4 h-4" />} label="Conversões" />
+            <TabButton active={activeTab === 'convert'} onClick={() => setActiveTab('convert')} icon={<Calculator className="w-4 h-4" />} label="Conversões" />
             <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')} icon={<Info className="w-4 h-4" />} label="Entenda" />
         </div>
       </header>
@@ -127,34 +125,35 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'manual' && (
-            <motion.div key="manual" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-5 space-y-6">
-                <div className="mb-2">
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Calculadora Manual</h2>
-                  <p className="text-slate-600 dark:text-slate-400">Insira coordenadas exatas em graus decimais ou sexagesimais.</p>
-                </div>
-                <SinglePointForm onResult={handleSingleResult} />
-              </div>
-              <div className="lg:col-span-7">
-                {results.length > 0 ? (
-                  <ResultsView results={results} />
-                ) : (
-                  <EmptyState icon={<Calculator className="w-8 h-8 text-slate-300" />} message="Calcule um ponto para ver o resultado detalhado." />
-                )}
-              </div>
-            </motion.div>
-          )}
-
           {activeTab === 'convert' && (
-            <motion.div key="convert" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+            <motion.div key="convert" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
               <div className="mb-2">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Painel de Conversões</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Ponto Único & Conversões</h2>
                 <p className="text-slate-600 dark:text-slate-400">
-                  Coordenadas geográficas ↔ UTM, altitudes h/H/N, transformação de datums e unidades de medida — tudo offline.
+                  Calcule um ponto por endereço ou coordenadas (API hgeoHNOR do IBGE) e use os conversores offline.
                 </p>
               </div>
-              <ConversionsPanel />
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div className="lg:col-span-5">
+                  <SinglePointForm onResult={handleSingleResult} />
+                </div>
+                <div className="lg:col-span-7">
+                  {results.length === 1 ? (
+                    <ResultsView results={results} />
+                  ) : (
+                    <EmptyState icon={<Calculator className="w-8 h-8 text-slate-300" />} message="Busque um endereço ou insira coordenadas para calcular a altitude ortométrica (H) com o modelo geoidal." />
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Ruler className="w-5 h-5 text-ibge-blue" />
+                  Conversores offline
+                </h3>
+                <ConversionsPanel />
+              </div>
             </motion.div>
           )}
 
