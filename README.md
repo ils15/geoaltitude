@@ -6,6 +6,18 @@
 
 **GeoAlt** é uma plataforma de inteligência geográfica projetada para a conversão de alta precisão entre altitudes geométricas (GNSS) e ortométricas. Utilizando o motor oficial **hgeoHNOR2020** do IBGE, o sistema provê a ponte fundamental entre a medição satelital e a realidade física do terreno.
 
+🌐 **Demo online:** [ils15.github.io/geoaltitude](https://ils15.github.io/geoaltitude/)
+
+## 🚀 Demo rápido (1 minuto)
+
+1. Abra a aba **Lote (CSV)** e clique em **“Usar dados de exemplo”** — 13 pontos pelo Brasil (do Pão de Açúcar ao Pico da Neblina), com `h` derivada do modelo geoidal real.
+2. Confirme o mapeamento e clique em **Processar Agora**: o app consulta o modelo **hgeoHNOR** do IBGE em lote (~200 pontos por chamada) e calcula `H = h − N`.
+3. Explore mapa colorido por altitude, perfil altimétrico, superfície 3D e exportação CSV/KML/**DXF em UTM**.
+4. Na aba **Conversões**, teste UTM ↔ geográficas, datums (SAD69(96) → SIRGAS2000 com parâmetros oficiais IBGE), altimetria h/H/N e distâncias — tudo offline, validado por 538 testes contra o PROJ.
+
+Arquivo de exemplo: [`public/exemplos/geoalt_demo.csv`](public/exemplos/geoalt_demo.csv) (ou baixe direto do app, na aba Entenda).
+Curiosidades dos dados: em Belém o `h` elipsoidal fica **negativo** (N ≈ −25,7 m); no Sul N é **positivo** (+4 a +5 m); no oeste amazônico a API responde com o fallback `MAPGEO2015_OESTE`.
+
 ---
 
 ## 🏗️ Arquitetura e Fluxo de Dados

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, ArrowRight, Satellite, Mountain, BookOpen, ShieldCheck, Zap, Globe } from 'lucide-react';
+import { Info, ArrowRight, Satellite, Mountain, BookOpen, ShieldCheck, Sparkles, Zap, Globe } from 'lucide-react';
 
 export function Explanation() {
   return (
@@ -63,6 +63,51 @@ export function Explanation() {
             <MetricCard label="h" sub="Geométrica" color="border-ibge-blue" />
             <MetricCard label="N" sub="Ondulação" color="border-ibge-gold" />
           </div>
+        </div>
+      </div>
+
+      {/* Tutorial de demonstração */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-ibge-green/30 dark:border-ibge-green/40 shadow-sm">
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-ibge-green" />
+          Tutorial: experimente em 1 minuto
+        </h3>
+        <ol className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+          <li className="flex gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">1</span>
+            <p>
+              Na aba <strong>Lote (CSV)</strong>, clique em <strong className="text-ibge-green">“Usar dados de exemplo”</strong>. São 13
+              pontos pelo Brasil — do Pão de Açúcar ao Pico da Neblina — com altitude elipsoidal (h) do GPS. Preferir o
+              arquivo? <a href="exemplos/geoalt_demo.csv" download className="text-ibge-blue dark:text-ibge-light-blue font-medium hover:underline">Baixe o CSV de exemplo</a> e envie manualmente.
+            </p>
+          </li>
+          <li className="flex gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">2</span>
+            <p>
+              Confirme o mapeamento das colunas e clique em <strong>Processar Agora</strong>. O app consulta o modelo
+              geoidal <strong>hgeoHNOR</strong> do IBGE em lote e calcula <strong>H = h − N</strong> ponto a ponto.
+            </p>
+          </li>
+          <li className="flex gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">3</span>
+            <p>
+              Explore os resultados: mapa com cores por altitude, perfil altimétrico, superfície 3D e exportação em
+              CSV/KML/<strong>DXF em UTM</strong>. No mapa, use as ferramentas de desenho para medir distâncias e áreas.
+            </p>
+          </li>
+          <li className="flex gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">4</span>
+            <p>
+              Na aba <strong>Conversões</strong>, teste UTM ↔ geográficas, transformação de datums e unidades — tudo offline,
+              validado por testes contra o PROJ.
+            </p>
+          </li>
+        </ol>
+        <div className="mt-6 p-4 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20 text-xs text-slate-600 dark:text-slate-300">
+          <strong className="text-ibge-blue dark:text-ibge-light-blue">Repare no exemplo:</strong> em Belém o h elipsoidal fica{' '}
+          <strong>negativo</strong> (−17,74 m, porque N ≈ −25,7 m na foz do Amazonas), já em Curitiba e Porto Alegre N é{' '}
+          <strong>positivo</strong> (+4 a +5 m) — e no Pico da Neblina a API responde com o modelo{' '}
+          <span className="font-mono">MAPGEO2015_OESTE</span>, usado como fallback na região oeste.
         </div>
       </div>
 

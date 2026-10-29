@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileText, Loader2, Download } from 'lucide-react';
+import { Sparkles, UploadCloud, FileText, Loader2, Download } from 'lucide-react';
 import Papa from 'papaparse';
 import { getPontosBatch, HgeoResult } from '../lib/api';
 import { isValidCoordinate } from '../lib/validation';
 import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
 import { reverseGeocode } from '../lib/geocoding';
 import { downloadText } from '../lib/export';
+import { DEMO_ROWS } from '../lib/demoData';
 
 export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoResult[]) => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -177,6 +178,18 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     downloadText('lat,lon\n-23.5505,-46.6333\n-22.9068,-43.1729', 'template_pontos.csv', 'text/csv;charset=utf-8;');
   };
 
+  // Carrega o dataset de demonstração (13 pontos pelo Brasil com h do modelo
+  // hgeoHNOR) direto no fluxo, como se o arquivo tivesse sido lido.
+  const loadDemo = () => {
+    const headers = ['latitude', 'longitude', 'altitude_elipsoidal', 'descricao'];
+    setFile(null);
+    setError(null);
+    setHeaders(headers);
+    setParsedData(DEMO_ROWS as any[]);
+    setMapping({ lat: 'latitude', lon: 'longitude', h: 'altitude_elipsoidal' });
+    setStep('mapping');
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors duration-200">
       <div className="flex items-center justify-between mb-6">
@@ -184,13 +197,22 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           <UploadCloud className="w-5 h-5 text-ibge-blue" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Processamento em Lote</h2>
         </div>
-        <button
-          onClick={downloadTemplate}
-          className="text-sm text-ibge-blue dark:text-ibge-light-blue hover:text-ibge-blue/80 dark:hover:text-ibge-light-blue/80 font-medium flex items-center gap-1 transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          Baixar Template CSV
-        </button>
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <button
+            onClick={loadDemo}
+            className="text-sm text-ibge-green hover:text-ibge-green/80 font-bold flex items-center gap-1 transition-colors"
+          >
+            <Sparkles className="w-4 h-4" />
+            Usar dados de exemplo
+          </button>
+          <button
+            onClick={downloadTemplate}
+            className="text-sm text-ibge-blue dark:text-ibge-light-blue hover:text-ibge-blue/80 dark:hover:text-ibge-light-blue/80 font-medium flex items-center gap-1 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Baixar Template CSV
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">
