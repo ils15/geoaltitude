@@ -8,6 +8,8 @@ import { ConversionsPanel } from './components/ConversionsPanel';
 import { MapPreview } from './components/MapPreview';
 import { getPontoDec, HgeoResult } from './lib/api';
 import { useHistory } from './hooks/useHistory';
+import { useTheme } from './hooks/useTheme';
+import { ThemeToggle } from './components/ThemeToggle';
 import { Compass, Globe2, UploadCloud, Calculator, Info, Map as MapIcon, History, Trash2, Copy, Check, Ruler } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster } from 'react-hot-toast';
@@ -19,6 +21,7 @@ export default function App() {
   const [results, setResults] = useState<HgeoResult[]>([]);
   const [shapefileData, setShapefileData] = useState<any>(null);
   const { history, addPoint, clearHistory } = useHistory();
+  const theme = useTheme();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleSingleResult = (result: HgeoResult) => {
@@ -43,7 +46,7 @@ export default function App() {
       <header className="sticky top-0 z-50 transition-colors duration-200 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b border-white/20 dark:border-slate-800/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-ibge-blue p-2 rounded-xl shadow-sm">
+            <div className="bg-gradient-to-br from-ibge-blue to-ibge-light-blue p-2 rounded-xl shadow-md shadow-ibge-blue/20">
               <Compass className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -60,15 +63,19 @@ export default function App() {
             <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')} icon={<Info className="w-4 h-4" />} label="Entenda" />
           </nav>
 
-          <a
-            href="https://servicodados.ibge.gov.br/api/docs/hgeohnor?versao=1"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors"
-          >
-            <Globe2 className="w-4 h-4" />
-            <span className="hidden sm:inline">API do IBGE</span>
-          </a>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle preference={theme.preference} onChange={theme.setTheme} />
+            <a
+              href="https://servicodados.ibge.gov.br/api/docs/hgeohnor?versao=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Documentação da API hgeoHNOR (IBGE)"
+              className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors"
+            >
+              <Globe2 className="w-4 h-4" />
+              <span className="hidden sm:inline">API do IBGE</span>
+            </a>
+          </div>
         </div>
         
         {/* Mobile Nav */}
@@ -213,6 +220,35 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/60 backdrop-blur mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <p>
+            GeoAlt · conversão de altitudes com o modelo geoidal{' '}
+            <a
+              href="https://servicodados.ibge.gov.br/api/docs/hgeohnor?versao=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ibge-blue dark:text-ibge-light-blue hover:underline font-medium"
+            >
+              hgeoHNOR (IBGE)
+            </a>{' '}
+            · mapas © OpenStreetMap
+          </p>
+          <p className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-ibge-green animate-pulse" aria-hidden="true" />
+            núcleo geodésico validado por 554 testes ·{' '}
+            <a
+              href="https://github.com/ils15/geoaltitude"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ibge-blue dark:text-ibge-light-blue hover:underline font-medium"
+            >
+              código aberto
+            </a>
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
