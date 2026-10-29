@@ -449,84 +449,111 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
 
         <div className="h-80 w-full">
           {viewMode === 'vertical' ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart margin={{ top: 20, right: 55, bottom: 20, left: 12 }} data={profileData}>
-                <defs>
-                  <linearGradient id="hProfileFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00a859" stopOpacity={0.55} />
-                    <stop offset="95%" stopColor="#00a859" stopOpacity={0.03} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="#94a3b8" strokeOpacity={0.14} />
-                <XAxis
-                  type="number"
-                  dataKey="distanceKm"
-                  name="Distância"
-                  unit=" km"
-                  domain={[0, 'dataMax']}
-                  tickFormatter={(value: number) => value.toFixed(2)}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 10, fill: '#64748b' }}
-                />
-                <YAxis
-                  yAxisId="y"
-                  type="number"
-                  name="Altitude"
-                  unit=" m"
-                  domain={['auto', 'auto']}
-                  tickFormatter={(value: number) => value.toFixed(2)}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 10, fill: '#64748b' }}
-                />
-                <YAxis
-                  yAxisId="n"
-                  type="number"
-                  name="Ondulação (N)"
-                  unit=" m"
-                  domain={nAxisDomain}
-                  orientation="right"
-                  tick={{ fontSize: 10, fill: '#00a1e4' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(value: number) => value.toFixed(0)}
-                />
-                <Tooltip content={<ProfileTooltip />} cursor={{ stroke: '#1e293b', strokeOpacity: 0.22 }} />
-                <Legend verticalAlign="top" height={34} iconType="line" />
-                <Area
-                  yAxisId="y"
-                  type="monotone"
-                  name="Altitude Ortométrica (H)"
-                  dataKey="H"
-                  fill="url(#hProfileFill)"
-                  stroke="#00a859"
-                  strokeWidth={2.2}
-                  dot={false}
-                  activeDot={{ r: 4, stroke: '#00a859', fill: '#ffffff', strokeWidth: 2 }}
-                  isAnimationActive
-                />
-                <Line
-                  yAxisId="y"
-                  type="monotone"
-                  name="Altitude Elipsoidal (h)"
-                  dataKey="h"
-                  stroke="#475569"
-                  strokeDasharray="5 4"
-                  strokeWidth={1.5}
-                  dot={false}
-                  activeDot={{ r: 3.5, stroke: '#475569', fill: '#ffffff', strokeWidth: 1.5 }}
-                  connectNulls
-                  isAnimationActive
-                />
-                <Bar yAxisId="n" name="Ondulação (N)" dataKey="N" radius={[3, 3, 0, 0]} maxBarSize={18}>
-                  {profileData.map((entry, i) => (
-                    <Cell key={i} fill={(entry.N ?? 0) >= 0 ? N_COLOR_POSITIVE : N_COLOR_NEGATIVE} fillOpacity={0.85} />
-                  ))}
-                </Bar>
-                <ReferenceLine yAxisId="y" y={0} stroke="#64748b" strokeOpacity={0.25} />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <div className="h-full flex flex-col">
+              {/* Perfil absoluto: H (área) e h (linha) */}
+              <ResponsiveContainer width="100%" height="59%">
+                <ComposedChart margin={{ top: 8, right: 20, bottom: 0, left: 12 }} data={profileData} syncId="perfil-alt">
+                  <defs>
+                    <linearGradient id="hProfileFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00a859" stopOpacity={0.55} />
+                      <stop offset="95%" stopColor="#00a859" stopOpacity={0.03} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#94a3b8" strokeOpacity={0.14} />
+                  <XAxis
+                    type="number"
+                    dataKey="distanceKm"
+                    name="Distância"
+                    unit=" km"
+                    domain={[0, 'dataMax']}
+                    tickFormatter={(value: number) => value.toFixed(2)}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={false}
+                  />
+                  <YAxis
+                    type="number"
+                    name="Altitude"
+                    unit=" m"
+                    domain={['auto', 'auto']}
+                    tickFormatter={(value: number) => value.toFixed(0)}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    width={52}
+                  />
+                  <Tooltip content={<ProfileTooltip />} cursor={{ stroke: '#1e293b', strokeOpacity: 0.22 }} />
+                  <Legend verticalAlign="top" height={24} iconType="line" wrapperStyle={{ fontSize: 10 }} />
+                  <Area
+                    type="monotone"
+                    name="Altitude Ortométrica (H)"
+                    dataKey="H"
+                    fill="url(#hProfileFill)"
+                    stroke="#00a859"
+                    strokeWidth={2.2}
+                    dot={false}
+                    activeDot={{ r: 4, stroke: '#00a859', fill: '#ffffff', strokeWidth: 2 }}
+                    isAnimationActive
+                  />
+                  <Line
+                    type="monotone"
+                    name="Altitude Elipsoidal (h)"
+                    dataKey="h"
+                    stroke="#475569"
+                    strokeDasharray="5 4"
+                    strokeWidth={1.5}
+                    dot={false}
+                    activeDot={{ r: 3.5, stroke: '#475569', fill: '#ffffff', strokeWidth: 1.5 }}
+                    connectNulls
+                    isAnimationActive
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <p className="text-[9px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue px-3 py-0.5">
+                Discrepância ao longo do traçado: ondulação geoidal N = h − H (m) · mesma distância
+              </p>
+              {/* Faixa de N com escala própria — a discrepância é o protagonista */}
+              <ResponsiveContainer width="100%" height="33%">
+                <ComposedChart margin={{ top: 4, right: 20, bottom: 0, left: 12 }} data={profileData} syncId="perfil-alt">
+                  <CartesianGrid vertical={false} stroke="#94a3b8" strokeOpacity={0.14} />
+                  <XAxis
+                    type="number"
+                    dataKey="distanceKm"
+                    name="Distância"
+                    unit=" km"
+                    domain={[0, 'dataMax']}
+                    tickFormatter={(value: number) => value.toFixed(2)}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 9, fill: '#64748b' }}
+                  />
+                  <YAxis
+                    type="number"
+                    name="Ondulação (N)"
+                    domain={nAxisDomain}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 9, fill: '#00a1e4' }}
+                    tickFormatter={(value: number) => value.toFixed(0)}
+                    width={52}
+                  />
+                  <Tooltip content={<ProfileTooltip />} cursor={{ stroke: '#1e293b', strokeOpacity: 0.22 }} />
+                  <ReferenceLine y={0} stroke="#334155" strokeOpacity={0.6} />
+                  <Area
+                    type="monotone"
+                    name="Ondulação (N = h − H)"
+                    dataKey="N"
+                    stroke="#00a1e4"
+                    strokeWidth={1.5}
+                    fill="#00a1e4"
+                    fillOpacity={0.4}
+                    baseLine={0}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           ) : viewMode === 'discrepancia' ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart margin={{ top: 20, right: 20, bottom: 10, left: 12 }} data={profileData}>
