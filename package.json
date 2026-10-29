@@ -15,6 +15,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
     "clsx": "^2.1.1",
+    "delaunator": "^5.1.0",
     "egm96-universal": "^1.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",

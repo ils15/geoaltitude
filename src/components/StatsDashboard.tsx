@@ -18,6 +18,7 @@ import {
 import type { Config, Data, Layout } from 'plotly.js';
 import { TrendingUp, ArrowUp, ArrowDown, Activity, BarChart3, Box, Map as MapIcon } from 'lucide-react';
 import { haversineDistance, parseFatorConversao, projectLocalEN } from '../lib/geodesy';
+import { triangulate } from '../lib/mesh';
 
 // plotly.js é pesado (~5 MB) e só é usado na visão 3D — carregado sob demanda
 const Plot = lazy(() => import('react-plotly.js'));
@@ -25,9 +26,19 @@ const Plot = lazy(() => import('react-plotly.js'));
 const N_COLOR_NEGATIVE = '#00a1e4'; // N < 0 (geóide abaixo do elipsoide)
 const N_COLOR_POSITIVE = '#fdb913'; // N ≥ 0 (geóide acima do elipsoide)
 
+const CAMERA_EYES = {
+  iso: { x: 1.35, y: 1.2, z: 0.85 },
+  topo: { x: 0.0001, y: -0.0001, z: 2.4 },
+  perfil: { x: 2.4, y: 0.0001, z: 0.18 },
+} as const;
+
+type CameraPreset = keyof typeof CAMERA_EYES;
+
 export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const [viewMode, setViewMode] = useState<'vertical' | 'discrepancia' | 'plan'>('vertical');
   const [exaggeration, setExaggeration] = useState(1);
+  const [showSurface, setShowSurface] = useState(true);
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>('iso');
 
   if (results.length < 2) return null;
 
@@ -113,61 +124,13 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const xGrid = Array.from({ length: gridSize }, (_, i) => boundedMinX + ((boundedMaxX - boundedMinX) * i) / (gridSize - 1));
   const yGrid = Array.from({ length: gridSize }, (_, i) => boundedMinY + ((boundedMaxY - boundedMinY) * i) / (gridSize - 1));
 
-// Delaunay triangulation for continuous mesh surface
-  const generateMesh3D = () => {
-    if (pointsMeters.length < 3) {
-      return { vertices: [], triangles: [], empty: true };
-    }
-
-    // Simple Delaunay-like algorithm: use convex hull + internal triangulation
-    const vertices = pointsMeters.map((p, idx) => ({
-      x: p.xMeters,
-      y: p.yMeters,
-      z: p.z,
-      idx,
-    }));
-
-    // For 2D Delaunay, sort by x then y
-    const sorted = [...vertices].sort((a, b) => a.x - b.x || a.y - b.y);
-
-    // Simple approach: connect each point to 3-4 nearest neighbors
-    const triangles: number[] = [];
-    const edgeSet = new Set<string>();
-
-    for (let i = 0; i < sorted.length; i++) {
-      const current = sorted[i];
-      const distances = sorted
-        .map((v, idx) => ({ ...v, dist: Math.hypot(v.x - current.x, v.y - current.y) }))
-        .filter(v => v.dist > 0.1)
-        .sort((a, b) => a.dist - b.dist)
-        .slice(0, 4);
-
-      for (let j = 0; j < distances.length; j++) {
-        for (let k = j + 1; k < distances.length; k++) {
-          const p0 = current.idx;
-          const p1 = distances[j].idx;
-          const p2 = distances[k].idx;
-
-          const edge1 = `${Math.min(p0, p1)}-${Math.max(p0, p1)}`;
-          const edge2 = `${Math.min(p1, p2)}-${Math.max(p1, p2)}`;
-          const edge3 = `${Math.min(p2, p0)}-${Math.max(p2, p0)}`;
-
-          if (!edgeSet.has(edge1) || !edgeSet.has(edge2) || !edgeSet.has(edge3)) {
-            if (triangles.length < sorted.length * 6) {
-              triangles.push(p0, p1, p2);
-              edgeSet.add(edge1);
-              edgeSet.add(edge2);
-              edgeSet.add(edge3);
-            }
-          }
-        }
-      }
-    }
-
-    return { vertices, triangles, empty: false };
+  // Malha Delaunay real com filtragem de triângulos-ponte (lib/mesh.ts)
+  const meshData = triangulate(pointsMeters.map(p => [p.xMeters, p.yMeters] as const));
+  const mesh = {
+    vertices: pointsMeters.map((p, idx) => ({ x: p.xMeters, y: p.yMeters, z: p.z, idx })),
+    triangles: meshData.triangles,
+    empty: meshData.triangles.length < 3,
   };
-
-  const mesh = generateMesh3D();
 
   const meshTrace: Data = mesh.empty ? {
     type: 'scatter3d',
@@ -184,7 +147,9 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     i: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 0)),
     j: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 1)),
     k: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 2)),
-    opacity: 0.72,
+    opacity: 0.82,
+    lighting: { ambient: 0.55, diffuse: 0.85, specular: 0.12, roughness: 0.9, fresnel: 0.1 },
+    lightposition: { x: 1000, y: 1000, z: 5000 },
     color: mesh.vertices.map(v => v.z),
     colorscale: [
       [0, '#1e3a8a'],
@@ -309,10 +274,10 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
       },
       aspectmode: 'data',
       camera: {
-        eye: { x: 1.35, y: 1.2, z: 0.85 },
+        eye: CAMERA_EYES[cameraPreset],
       },
     },
-    uirevision: 'terrain3d-static',
+    uirevision: `cam-${cameraPreset}`,
   };
 
   const scatter3DConfig: Partial<Config> = {
@@ -431,7 +396,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
         </div>
 
         {viewMode === 'plan' && (
-          <div className="flex items-center gap-3 mb-3 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 mb-3 flex-wrap text-xs text-slate-500 dark:text-slate-400">
             <span className="font-semibold uppercase tracking-wider shrink-0">Exagero vertical</span>
             <input
               type="range"
@@ -440,14 +405,42 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
               step={0.5}
               value={exaggeration}
               onChange={e => setExaggeration(parseFloat(e.target.value))}
-              className="flex-1 accent-ibge-blue"
+              className="w-32 accent-ibge-blue"
               aria-label="Exagero vertical"
             />
-            <span className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue w-9 text-right">×{exaggeration.toFixed(1)}</span>
+            <span className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue">×{exaggeration.toFixed(1)}</span>
+
+            <label className="flex items-center gap-1.5 ml-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showSurface}
+                onChange={e => setShowSurface(e.target.checked)}
+                className="accent-ibge-blue"
+              />
+              Superfície
+            </label>
+
+            <div className="flex items-center gap-0.5 ml-auto bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg" role="group" aria-label="Vista da câmera">
+              {([['iso', 'Iso'], ['topo', 'Planta'], ['perfil', 'Perfil']] as Array<[CameraPreset, string]>).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCameraPreset(id)}
+                  aria-pressed={cameraPreset === id}
+                  className={`px-2 py-1 rounded-md font-bold transition-colors ${
+                    cameraPreset === id
+                      ? 'bg-white dark:bg-slate-800 text-ibge-blue dark:text-white shadow-sm'
+                      : 'hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        <div className="h-80 w-full">
+        <div className={viewMode === 'plan' ? 'h-[440px] w-full' : 'h-80 w-full'}>
           {viewMode === 'vertical' ? (
             <div className="h-full flex flex-col">
               {/* Perfil absoluto: H (área) e h (linha) */}
@@ -597,7 +590,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                 }
               >
               <Plot
-                data={[basePlaneTrace, meshTrace, stemsTrace, controlPointsTrace]}
+                data={[basePlaneTrace, ...(showSurface ? [meshTrace] : []), stemsTrace, controlPointsTrace]}
                   layout={scatter3DLayout}
                   config={scatter3DConfig}
                   useResizeHandler
@@ -612,7 +605,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
         <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-widest font-bold">
             Nota Técnica: {(viewMode === 'plan'
-              ? 'representação 3D geoespacial: hastes verticais ligam cada ponto ao plano de base (cores por altitude), com exagero vertical ajustável para revelar o relevo. '
+              ? 'representação 3D geoespacial: malha de Delaunay com filtragem de triângulos-ponte, hastes verticais até o plano de base, exagero vertical ajustável e vistas Iso/Planta/Perfil. Com dados esparsos, desative a superfície e leia o relevo pelas hastes. '
               : viewMode === 'discrepancia'
                 ? 'discrepância altimétrica por ponto: cada barra é a ondulação geoidal N = h − H (azul: geóide abaixo do elipsoide; âmbar: acima). '
                 : 'perfil vertical com distância acumulada (km): H (área), h (linha) e N (barras no eixo secundário) — a diferença entre as duas curvas é a ondulação geoidal. ')}
