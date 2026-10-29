@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { HgeoResult } from '../lib/api';
 import {
   Area,
@@ -12,9 +12,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import Plot from 'react-plotly.js';
 import type { Config, Data, Layout } from 'plotly.js';
 import { TrendingUp, ArrowUp, ArrowDown, Activity, Box, Map as MapIcon } from 'lucide-react';
+import { haversineDistance, parseFatorConversao, projectLocalEN } from '../lib/geodesy';
+
+// plotly.js é pesado (~5 MB) e só é usado na visão 3D — carregado sob demanda
+const Plot = lazy(() => import('react-plotly.js'));
 
 export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const [viewMode, setViewMode] = useState<'plan' | 'vertical'>('vertical');
@@ -26,24 +29,12 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const maxH = validH.length > 0 ? Math.max(...validH) : 0;
   const minH = validH.length > 0 ? Math.min(...validH) : 0;
 
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const earthRadiusKm = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return earthRadiusKm * c;
-  };
-
   const normalizedData = results.map((r, idx) => {
     const lat = parseFloat(r.lat);
     const lon = parseFloat(r.long);
     const h = r.h;
     const H = r.H;
-    const N = typeof r.fator_conversao === 'string' ? parseFloat(r.fator_conversao) : r.fator_conversao;
+    const N = parseFatorConversao(r.fator_conversao) ?? 0;
 
     return {
       index: idx + 1,
@@ -64,7 +55,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     }
 
     const prev = all[index - 1];
-    const segmentKm = haversineKm(prev.lat, prev.lon, point.lat, point.lon);
+    const segmentKm = haversineDistance(prev, point) / 1000;
     cumulativeKm += segmentKm;
     return { ...point, distanceKm: cumulativeKm, segmentKm };
   });
@@ -82,19 +73,17 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
 
   const meanLat = points3D.reduce((acc, point) => acc + point.lat, 0) / points3D.length;
   const meanLon = points3D.reduce((acc, point) => acc + point.lon, 0) / points3D.length;
-  const meanLatRad = toRad(meanLat);
 
-  // Local tangent-plane projection in meters for bounded cartographic surface rendering.
-  const pointsMeters = points3D.map(point => {
-    const eastMeters = (point.lon - meanLon) * 111320 * Math.cos(meanLatRad);
-    const northMeters = (point.lat - meanLat) * 110540;
-
-    return {
-      ...point,
-      xMeters: eastMeters,
-      yMeters: northMeters,
-    };
-  });
+  // Projeção local (plano tangente com raios de curvatura exatos) em metros
+  const localEN = projectLocalEN(
+    points3D.map(point => ({ lat: point.lat, lon: point.lon })),
+    { lat: meanLat, lon: meanLon }
+  );
+  const pointsMeters = points3D.map((point, i) => ({
+    ...point,
+    xMeters: localEN[i].easting,
+    yMeters: localEN[i].northing,
+  }));
 
   const xValues = pointsMeters.map(point => point.xMeters);
   const yValues = pointsMeters.map(point => point.yMeters);
@@ -420,14 +409,22 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
             </ResponsiveContainer>
           ) : (
             <div className="h-full w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 overflow-hidden">
-              <Plot
-                data={[meshTrace, controlPointsTrace]}
-                layout={scatter3DLayout}
-                config={scatter3DConfig}
-                useResizeHandler
-                className="h-full w-full"
-                style={{ width: '100%', height: '100%' }}
-              />
+              <Suspense
+                fallback={
+                  <div className="h-full w-full flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                    Carregando visualização 3D…
+                  </div>
+                }
+              >
+                <Plot
+                  data={[meshTrace, controlPointsTrace]}
+                  layout={scatter3DLayout}
+                  config={scatter3DConfig}
+                  useResizeHandler
+                  className="h-full w-full"
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </Suspense>
             </div>
           )}
         </div>

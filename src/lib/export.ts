@@ -1,6 +1,7 @@
 import { HgeoResult } from './api';
+import { geographicToUTM, lonToUtmZone, orthometricHeight, parseFatorConversao } from './geodesy';
 
-function download(content: string, filename: string, type: string) {
+export function downloadText(content: string, filename: string, type: string) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -23,7 +24,7 @@ export function exportCSV(points: HgeoResult[]) {
       csv.push(`${p.lat},${p.long},${p.fator_conversao}`);
     }
   });
-  download(csv.join('\n'), 'geoalt_export.csv', 'text/csv');
+  downloadText(csv.join('\n'), 'geoalt_export.csv', 'text/csv');
 }
 
 export function exportKML(points: HgeoResult[]) {
@@ -45,15 +46,37 @@ export function exportKML(points: HgeoResult[]) {
     </Placemark>`).join('')}
   </Document>
 </kml>`;
-  download(kml, 'geoalt_export.kml', 'application/vnd.google-earth.kml+xml');
+  downloadText(kml, 'geoalt_export.kml', 'application/vnd.google-earth.kml+xml');
 }
 
+/**
+ * DXF em coordenadas projetadas (UTM), utilizável em CAD.
+ * Todos os pontos são convertidos para o fuso do centroide para evitar
+ * emenda de fuso dentro do mesmo desenho. Z = H (ortométrica) quando
+ * disponível; caso contrário h − N, ou h.
+ */
 export function exportDXF(points: HgeoResult[]) {
-  let dxf = `  0\nSECTION\n  2\nENTITIES\n`;
-  points.forEach(p => {
-    const z = p.H !== undefined ? p.H : p.fator_conversao;
-    dxf += `  0\nPOINT\n  8\n0\n 10\n${p.long}\n 20\n${p.lat}\n 30\n${z}\n`;
+  const parsed = points
+    .map(p => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long), point: p }))
+    .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+  if (parsed.length === 0) return;
+
+  const centerLon = parsed.reduce((acc, p) => acc + p.lon, 0) / parsed.length;
+  const zone = lonToUtmZone(centerLon);
+
+  let dxf = `999\nGeoAlt - UTM fuso ${zone} (datum SIRGAS2000/WGS84) - Z ortometrica (H) quando disponivel\n`;
+  dxf += `  0\nSECTION\n  2\nENTITIES\n`;
+  parsed.forEach(({ lat, lon, point }) => {
+    const utm = geographicToUTM(lat, lon);
+    const N = parseFatorConversao(point.fator_conversao);
+    const z =
+      point.H !== undefined
+        ? point.H
+        : point.h !== undefined && N !== null
+          ? orthometricHeight(point.h, N)
+          : (point.h ?? 0);
+    dxf += `  0\nPOINT\n  8\nGEOALT_PONTOS\n 10\n${utm.easting.toFixed(3)}\n 20\n${utm.northing.toFixed(3)}\n 30\n${z.toFixed(3)}\n`;
   });
   dxf += `  0\nENDSEC\n  0\nEOF\n`;
-  download(dxf, 'geoalt_export.dxf', 'application/dxf');
+  downloadText(dxf, `geoalt_export_utm${zone}.dxf`, 'application/dxf');
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { getPontoDec, getPontoGms, HgeoResult } from '../lib/api';
 import { reverseGeocode, Address } from '../lib/geocoding';
 import { isValidCoordinate, gmsToDec } from '../lib/validation';
+import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
 import { Loader2, MapPin, Calculator } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -64,10 +65,10 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
       }
       if (altitude) {
         const h = parseFloat(altitude);
-        if (!isNaN(h)) {
-          const N = typeof result.fator_conversao === 'string' ? parseFloat(result.fator_conversao) : result.fator_conversao;
+        const N = parseFatorConversao(result.fator_conversao);
+        if (!isNaN(h) && N !== null) {
           result.h = h;
-          result.H = h - N;
+          result.H = orthometricHeight(h, N);
         }
       }
 

@@ -3,6 +3,9 @@ import { UploadCloud, FileText, Loader2, Download } from 'lucide-react';
 import Papa from 'papaparse';
 import { getPontoDec, HgeoResult } from '../lib/api';
 import { isValidCoordinate } from '../lib/validation';
+import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
+import { reverseGeocode } from '../lib/geocoding';
+import { downloadText } from '../lib/export';
 
 export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoResult[]) => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -126,22 +129,14 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           await new Promise(resolve => setTimeout(resolve, idx * 1000));
           
           const res = await getPontoDec(point.lat, point.lon);
-          
-          // Add Geocoding
-          try {
-            const addressRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${point.lat}&lon=${point.lon}`, {
-               headers: { 'Accept-Language': 'pt-BR' }
-            });
-            const addressData = await addressRes.json();
-            res.address = addressData.display_name || 'Endereço não encontrado';
-          } catch (geoErr) {
-            console.error('Geocoding error:', geoErr);
-          }
+
+          const addr = await reverseGeocode(point.lat, point.lon);
+          if (addr) res.address = addr.displayName;
 
           if (point.h !== undefined) {
-            const N = typeof res.fator_conversao === 'string' ? parseFloat(res.fator_conversao) : res.fator_conversao;
             res.h = point.h;
-            res.H = point.h - N;
+            const N = parseFatorConversao(res.fator_conversao);
+            if (N !== null) res.H = orthometricHeight(point.h, N);
           }
           return res;
         } catch (err) {
@@ -162,16 +157,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
   };
 
   const downloadTemplate = () => {
-    const csvContent = "lat,lon\n-23.5505,-46.6333\n-22.9068,-43.1729";
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "template_pontos.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadText('lat,lon\n-23.5505,-46.6333\n-22.9068,-43.1729', 'template_pontos.csv', 'text/csv;charset=utf-8;');
   };
 
   return (

@@ -4,7 +4,8 @@ import { EditControl } from 'react-leaflet-draw';
 import { HgeoResult } from '../lib/api';
 import { fetchRBMCStations, RBMCStation } from '../lib/rbmc';
 import { exportCSV, exportKML, exportDXF } from '../lib/export';
-import { Map as MapIcon, Layers, Download, ExternalLink, Radio } from 'lucide-react';
+import { polygonArea, polygonPerimeter, polylineLength } from '../lib/geodesy';
+import { Map as MapIcon, Layers, Download, ExternalLink, Radio, Ruler } from 'lucide-react';
 import L from 'leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
@@ -40,6 +41,45 @@ const createCustomIcon = (h?: number, isSelected = false) => {
   });
 };
 
+// ===== Medições geodésicas dos desenhos =====
+
+interface Measurement {
+  id: number;
+  label: string;
+  detail?: string;
+}
+
+const formatDistance = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(3)} km` : `${m.toFixed(2)} m`);
+const formatAreaM2 = (m2: number) => (m2 >= 10000 ? `${(m2 / 10000).toFixed(4)} ha` : `${m2.toFixed(2)} m²`);
+
+function measureLayer(layer: L.Layer): Omit<Measurement, 'id'> | null {
+  if (layer instanceof L.Polygon) {
+    const ring = layer.getLatLngs()[0] as L.LatLng[];
+    const pts = ring.map(ll => ({ lat: ll.lat, lon: ll.lng }));
+    if (pts.length < 3) return null;
+    return {
+      label: `Área: ${formatAreaM2(polygonArea(pts))}`,
+      detail: `Perímetro: ${formatDistance(polygonPerimeter(pts))}`,
+    };
+  }
+  if (layer instanceof L.Circle) {
+    const r = layer.getRadius();
+    return {
+      label: `Raio: ${formatDistance(r)}`,
+      detail: `Área ≈ ${formatAreaM2(Math.PI * r * r)} (plana)`,
+    };
+  }
+  if (layer instanceof L.Polyline) {
+    const pts = (layer.getLatLngs() as L.LatLng[]).map(ll => ({ lat: ll.lat, lon: ll.lng }));
+    return { label: `Distância: ${formatDistance(polylineLength(pts))}` };
+  }
+  if (layer instanceof L.Marker) {
+    const ll = layer.getLatLng();
+    return { label: `Ponto: ${ll.lat.toFixed(6)}, ${ll.lng.toFixed(6)}` };
+  }
+  return null;
+}
+
 // Create custom icon for RBMC stations
 const rbmcIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -52,6 +92,14 @@ const rbmcIcon = new L.Icon({
 
 export function MapPreview({ points, shapefileData }: { points: HgeoResult[], shapefileData?: any }) {
   const [rbmcStations, setRbmcStations] = useState<RBMCStation[]>([]);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+
+  const upsertMeasurement = (layer: L.Layer) => {
+    const m = measureLayer(layer);
+    if (!m) return;
+    const id = L.stamp(layer);
+    setMeasurements(prev => [...prev.filter(x => x.id !== id), { id, ...m }]);
+  };
 
   useEffect(() => {
     fetchRBMCStations().then(setRbmcStations);
@@ -212,8 +260,42 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
                 marker: true,
                 polyline: true,
               }}
+              onCreated={(e: any) => upsertMeasurement(e.layer as L.Layer)}
+              onEdited={(e: any) => (e.layers as L.LayerGroup).eachLayer(layer => upsertMeasurement(layer))}
+              onDeleted={(e: any) => {
+                const removed: number[] = [];
+                (e.layers as L.LayerGroup).eachLayer(layer => removed.push(L.stamp(layer)));
+                setMeasurements(prev => prev.filter(m => !removed.includes(m.id)));
+              }}
             />
           </FeatureGroup>
+
+          {measurements.length > 0 && (
+            <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3 max-w-xs text-sm">
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Ruler className="w-4 h-4 text-ibge-blue" />
+                  Medições do desenho
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMeasurements([])}
+                  aria-label="Limpar lista de medições"
+                  className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                >
+                  limpar
+                </button>
+              </div>
+              <ul className="space-y-1.5">
+                {measurements.map(m => (
+                  <li key={m.id} className="font-mono text-xs text-slate-700 dark:text-slate-300">
+                    {m.label}
+                    {m.detail && <span className="block text-slate-400 dark:text-slate-500">{m.detail}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <MarkerClusterGroup
             chunkedLoading

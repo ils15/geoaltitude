@@ -5,9 +5,11 @@ import { ReportButton } from './ReportButton';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Download, Map as MapIcon, Table2, Layers, Loader2 } from 'lucide-react';
+import { Download, Map as MapIcon, Table2, Layers, Loader2, X } from 'lucide-react';
 import Papa from 'papaparse';
 import { Toaster, toast } from 'react-hot-toast';
+import { decToDms } from '../lib/geodesy';
+import { downloadText } from '../lib/export';
 
 const SkeletonRow = () => (
   <tr className="animate-pulse border-b border-slate-100 dark:border-slate-800/50">
@@ -30,16 +32,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function toDms(value: number, isLatitude: boolean) {
-  const absolute = Math.abs(value);
-  const degrees = Math.floor(absolute);
-  const minutesFloat = (absolute - degrees) * 60;
-  const minutes = Math.floor(minutesFloat);
-  const seconds = (minutesFloat - minutes) * 60;
-  const hemisphere = isLatitude ? (value >= 0 ? 'N' : 'S') : (value >= 0 ? 'E' : 'W');
-  return `${degrees}° ${minutes}' ${seconds.toFixed(2)}\" ${hemisphere}`;
-}
-
 function formatCoordinate(rawValue: string, isLatitude: boolean) {
   const numeric = Number.parseFloat(rawValue);
   if (!Number.isFinite(numeric)) {
@@ -48,7 +40,7 @@ function formatCoordinate(rawValue: string, isLatitude: boolean) {
 
   return {
     decimal: numeric.toFixed(6),
-    dms: toDms(numeric, isLatitude),
+    dms: decToDms(numeric, isLatitude),
   };
 }
 
@@ -80,6 +72,15 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
     setAddressModal(null);
   }, [results]);
 
+  React.useEffect(() => {
+    if (!addressModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAddressModal(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [addressModal]);
+
   if (results.length === 0) return null;
 
   const totalPages = Math.max(1, Math.ceil(results.length / rowsPerPage));
@@ -92,15 +93,7 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
 
   const downloadResults = () => {
     const csv = Papa.unparse(results);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `resultados_geoaltitude_${new Date().getTime()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadText(csv, `resultados_geoaltitude_${new Date().getTime()}.csv`, 'text/csv;charset=utf-8;');
     toast.success('Arquivo CSV exportado com sucesso!');
   };
 
@@ -126,6 +119,8 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 view === 'table' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Ver Tabela"
+              aria-label="Ver Tabela"
+              aria-pressed={view === 'table'}
             >
               <Table2 className="w-4 h-4" />
             </button>
@@ -135,6 +130,8 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 view === 'map' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Ver Mapa"
+              aria-label="Ver Mapa"
+              aria-pressed={view === 'map'}
             >
               <MapIcon className="w-4 h-4" />
             </button>
@@ -347,10 +344,23 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
 
       {addressModal && (
         <div className="fixed inset-0 z-[1200] bg-slate-900/45 flex items-center justify-center p-4" onClick={() => setAddressModal(null)}>
-          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-4" onClick={e => e.stopPropagation()}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${addressModal.title} - endereço completo`}
+            className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-4"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold text-slate-900 dark:text-white">{addressModal.title} - Endereço completo</p>
-              <button type="button" onClick={() => setAddressModal(null)} className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white">fechar</button>
+              <button
+                type="button"
+                onClick={() => setAddressModal(null)}
+                aria-label="Fechar"
+                className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <p className="text-sm text-slate-700 dark:text-slate-200 break-words">{addressModal.full}</p>
           </div>
