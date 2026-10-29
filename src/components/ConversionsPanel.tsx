@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
   ArrowLeftRight,
-  Check,
-  Copy,
   Globe2,
   Info,
   Loader2,
@@ -31,6 +29,7 @@ import {
 import { GEOID_MODELS, GeoidModelId, fetchUndulation } from '../lib/geoidModels';
 import { fetchTerrainElevation } from '../lib/openServices';
 import { forwardGeocode, ForwardGeocodeResult } from '../lib/geocoding';
+import { CopyChip } from './CopyChip';
 
 const inputClass =
   'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all';
@@ -58,30 +57,6 @@ function parseNum(text: string): number | null {
   if (!text.trim()) return null;
   const v = parseFloat(text.replace(',', '.'));
   return Number.isFinite(v) ? v : null;
-}
-
-function CopyChip({ text, label = 'Copiar valor' }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* clipboard indisponível — ignora silenciosamente */
-    }
-  };
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      aria-label={label}
-      title={label}
-      className="shrink-0 p-1 rounded-md text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-    >
-      {copied ? <Check className="w-3.5 h-3.5 text-ibge-green" /> : <Copy className="w-3.5 h-3.5" />}
-    </button>
-  );
 }
 
 function ResultRow({

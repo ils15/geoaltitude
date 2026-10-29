@@ -8,9 +8,11 @@ import L from 'leaflet';
 import { Download, Map as MapIcon, Table2, Layers, Loader2, X } from 'lucide-react';
 import Papa from 'papaparse';
 import { Toaster, toast } from 'react-hot-toast';
-import { decToDms } from '../lib/geodesy';
+import { decToDms, geographicToUTM, formatUTM, geodeticToEcef } from '../lib/geodesy';
 import { downloadText } from '../lib/export';
 import { FitBoundsControl } from './FitBoundsControl';
+import { CopyChip } from './CopyChip';
+import { Globe2 } from 'lucide-react';
 
 const SkeletonRow = () => (
   <tr className="animate-pulse border-b border-slate-100 dark:border-slate-800/50">
@@ -177,6 +179,25 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
             </div>
           </div>
 
+          {singleResultWithH.N_egm96 !== undefined && (
+            <div className="mb-6 p-4 bg-ibge-gold/10 dark:bg-ibge-gold/5 border border-ibge-gold/40 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex flex-wrap items-center gap-x-6 gap-y-1">
+              <span className="font-bold text-ibge-gold uppercase tracking-wider text-[10px]">
+                Comparação com o modelo global (EGM96, offline):
+              </span>
+              <span>
+                N = <span className="font-mono font-bold">{singleResultWithH.N_egm96!.toFixed(3)} m</span>
+              </span>
+              <span>
+                H = <span className="font-mono font-bold">{(singleResultWithH.H_egm96 ?? 0).toFixed(3)} m</span>
+              </span>
+              {singleResultWithH.H !== undefined && (
+                <span>
+                  ΔH vs hgeoHNOR: <span className="font-mono font-bold">{(singleResultWithH.H_egm96! - singleResultWithH.H).toFixed(3)} m</span>
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Graphic Schematic */}
           <div className="relative h-48 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center p-4">
              <div className="relative w-full max-w-md h-full flex flex-col justify-center">
@@ -219,6 +240,45 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
           </div>
         </div>
       )}
+
+      {results.length === 1 && (() => {
+        const r0 = results[0];
+        const lat0 = parseFloat(r0.lat);
+        const lon0 = parseFloat(r0.long);
+        const utm = geographicToUTM(lat0, lon0);
+        const ecef = geodeticToEcef(lat0, lon0);
+        const rows: Array<[string, string, string]> = [
+          ['Decimais', `${lat0.toFixed(7)}°, ${lon0.toFixed(7)}°`, `${lat0.toFixed(7)}, ${lon0.toFixed(7)}`],
+          ['GMS', `${decToDms(lat0, true)} / ${decToDms(lon0, false)}`, `${decToDms(lat0, true)} / ${decToDms(lon0, false)}`],
+          ['UTM', formatUTM(utm, 3), formatUTM(utm, 3)],
+          ['ECEF (m)', `X ${ecef.x.toFixed(3)}, Y ${ecef.y.toFixed(3)}, Z ${ecef.z.toFixed(3)}`, `${ecef.x.toFixed(3)}, ${ecef.y.toFixed(3)}, ${ecef.z.toFixed(3)}`],
+        ];
+        return (
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <Globe2 className="w-4 h-4 text-ibge-blue" />
+              Coordenadas do ponto em outros sistemas
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {rows.map(([label, value, copyText]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800"
+                >
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0">{label}</span>
+                  <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 break-all text-right">
+                    {value}
+                  </span>
+                  <CopyChip text={copyText} label={`Copiar ${label}`} />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+              UTM no fuso do ponto (WGS84 ≈ SIRGAS2000). Conversões do mesmo núcleo validado contra o PROJ.
+            </p>
+          </div>
+        );
+      })()}
 
       {view === 'table' ? (
         <div className="overflow-x-auto">

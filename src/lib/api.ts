@@ -7,8 +7,10 @@ export interface HgeoResult {
   long: string;
   modelo: string;
   h?: number; // Altitude geométrica
-  H?: number; // Altitude ortométrica
+  H?: number; // Altitude ortométrica (modelo hgeoHNOR / IBGE)
   address?: string; // Endereço aproximado
+  N_egm96?: number; // Ondulação do modelo global EGM96 (comparação offline)
+  H_egm96?: number; // Altitude ortométrica segundo o EGM96
 }
 
 export interface LatLonInput {

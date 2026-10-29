@@ -3,7 +3,13 @@ import { getPontoDec, getPontoGms, HgeoResult } from '../lib/api';
 import { forwardGeocode, reverseGeocode, Address, ForwardGeocodeResult } from '../lib/geocoding';
 import { isValidCoordinate, gmsToDec } from '../lib/validation';
 import { orthometricHeight, parseFatorConversao, decToDmsParts } from '../lib/geodesy';
+import { fetchUndulation } from '../lib/geoidModels';
 import { Loader2, MapPin, Calculator, Search } from 'lucide-react';
+
+/** parseFloat tolerante à vírgula decimal (usuários brasileiros digitam "57,68"). */
+function num(text: string): number {
+  return parseFloat(text.trim().replace(',', '.'));
+}
 import { motion } from 'motion/react';
 
 export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) => void }) {
@@ -26,6 +32,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
 
   // Altitude state
   const [altitude, setAltitude] = useState('');
+  const [compareEgm, setCompareEgm] = useState(false);
 
   // Busca de endereço (Nominatim/OSM)
   const [placeQuery, setPlaceQuery] = useState('');
@@ -41,6 +48,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
   };
 
   const escolherEndereco = (r: ForwardGeocodeResult) => {
+    setError(null);
     if (mode === 'dec') {
       setLat(r.lat.toFixed(6));
       setLon(r.lon.toFixed(6));
@@ -68,8 +76,8 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
       let result: HgeoResult;
       if (mode === 'dec') {
         if (!lat || !lon) throw new Error('Preencha latitude e longitude');
-        const numLat = parseFloat(lat);
-        const numLon = parseFloat(lon);
+        const numLat = num(lat);
+        const numLon = num(lon);
         if (!isValidCoordinate(numLat, numLon)) {
           throw new Error('Coordenadas fora da área de cobertura do Brasil (Lat: -34 a 6, Lon: -74 a -32).');
         }
@@ -78,12 +86,12 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
         if (!glat || !mlat || !slat || !glon || !mlon || !slon) {
           throw new Error('Preencha todos os campos de graus, minutos e segundos');
         }
-        const numGlat = parseFloat(glat);
-        const numMlat = parseFloat(mlat);
-        const numSlat = parseFloat(slat);
-        const numGlon = parseFloat(glon);
-        const numMlon = parseFloat(mlon);
-        const numSlon = parseFloat(slon);
+        const numGlat = num(glat);
+        const numMlat = num(mlat);
+        const numSlat = num(slat);
+        const numGlon = num(glon);
+        const numMlon = num(mlon);
+        const numSlon = num(slon);
 
         const decLat = gmsToDec(numGlat, numMlat, numSlat);
         const decLon = gmsToDec(numGlon, numMlon, numSlon);
@@ -95,7 +103,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
         result = await getPontoGms(numGlat, numMlat, numSlat, numGlon, numMlon, numSlon);
       }
       if (altitude) {
-        const h = parseFloat(altitude);
+        const h = num(altitude);
         const N = parseFatorConversao(result.fator_conversao);
         if (!isNaN(h) && N !== null) {
           result.h = h;
@@ -104,8 +112,20 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
       }
 
       // Reverse geocoding
-      const latNum = mode === 'dec' ? parseFloat(lat) : gmsToDec(parseFloat(glat), parseFloat(mlat), parseFloat(slat));
-      const lonNum = mode === 'dec' ? parseFloat(lon) : gmsToDec(parseFloat(glon), parseFloat(mlon), parseFloat(slon));
+      const latNum = mode === 'dec' ? num(lat) : gmsToDec(num(glat), num(mlat), num(slat));
+      const lonNum = mode === 'dec' ? num(lon) : gmsToDec(num(glon), num(mlon), num(slon));
+
+      // Comparação opcional com o modelo global EGM96 (avaliado offline)
+      if (compareEgm && result.h !== undefined) {
+        try {
+          const egm = await fetchUndulation('EGM96', latNum, lonNum);
+          result.N_egm96 = egm.N;
+          result.H_egm96 = orthometricHeight(result.h, egm.N);
+        } catch {
+          /* EGM96 indisponível — segue sem a comparação */
+        }
+      }
+
       const addr = await reverseGeocode(latNum, lonNum);
       if (addr) {
         setAddress(addr);
@@ -304,6 +324,18 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Insira a altitude do GPS para calcular a Altitude Ortométrica (H)
           </p>
+          <label className="mt-2 flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={compareEgm}
+              onChange={e => setCompareEgm(e.target.checked)}
+              className="mt-0.5 accent-ibge-blue"
+            />
+            <span>
+              Comparar também com o modelo global <strong>EGM96</strong> (NGA, avaliado offline) — mostra a diferença
+              entre o modelo do IBGE e o global
+            </span>
+          </label>
         </div>
 
         {error && (
