@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Ruler, Search } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Check,
+  Copy,
+  Globe2,
+  Info,
+  Loader2,
+  Mountain,
+  MoveHorizontal,
+  Search,
+} from 'lucide-react';
 import {
   DATUMS,
   DatumId,
@@ -26,8 +36,17 @@ const inputClass =
   'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all';
 const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1';
 
+type SectionId = 'coordenadas' | 'altimetria' | 'datum' | 'medidas';
+
+const SECTIONS: Array<{ id: SectionId; label: string; icon: React.ReactNode }> = [
+  { id: 'coordenadas', label: 'Coordenadas', icon: <Globe2 className="w-4 h-4" /> },
+  { id: 'altimetria', label: 'Altimetria', icon: <Mountain className="w-4 h-4" /> },
+  { id: 'datum', label: 'Datum', icon: <ArrowLeftRight className="w-4 h-4" /> },
+  { id: 'medidas', label: 'Medidas', icon: <MoveHorizontal className="w-4 h-4" /> },
+];
+
 function parseCoordinateInput(text: string): { value?: number; error?: string } {
-  if (!text.trim()) return { error: 'Informe a coordenada (dec. ou GMS, ex.: -23.5505 ou "23° 33\' 1.8\" S")' };
+  if (!text.trim()) return { error: 'Informe a coordenada (dec. ou GMS, ex.: -23.5505 ou "23° 33\' 1.8" S")' };
   try {
     return { value: parseDmsString(text) };
   } catch (err: any) {
@@ -41,12 +60,49 @@ function parseNum(text: string): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
-function ResultRow({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+function CopyChip({ text, label = 'Copiar valor' }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard indisponível — ignora silenciosamente */
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={label}
+      title={label}
+      className="shrink-0 p-1 rounded-md text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+    >
+      {copied ? <Check className="w-3.5 h-3.5 text-ibge-green" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
+
+function ResultRow({
+  label,
+  value,
+  mono = true,
+  copyText,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  copyText?: string;
+}) {
   return (
     <div className="flex items-start justify-between gap-3 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-      <span className="text-xs text-slate-500 dark:text-slate-400 pt-0.5">{label}</span>
-      <span className={`text-sm font-semibold text-slate-900 dark:text-white text-right break-all ${mono ? 'font-mono' : ''}`}>
-        {value}
+      <span className="text-xs text-slate-500 dark:text-slate-400 pt-0.5 shrink-0">{label}</span>
+      <span className="flex items-center gap-1.5 min-w-0">
+        <span className={`text-sm font-semibold text-slate-900 dark:text-white text-right break-all ${mono ? 'font-mono' : ''}`}>
+          {value}
+        </span>
+        {copyText && <CopyChip text={copyText} label={`Copiar ${label.toLowerCase()}`} />}
       </span>
     </div>
   );
@@ -60,7 +116,7 @@ function ErrorNote({ message }: { message: string }) {
   );
 }
 
-// ===== 1. Coordenadas ↔ UTM =====
+// ===== 1. Coordenadas ↔ UTM ↔ ECEF =====
 
 function CoordinatesSection() {
   const [mode, setMode] = useState<'geo2utm' | 'utm2geo' | 'ecef'>('geo2utm');
@@ -75,9 +131,10 @@ function CoordinatesSection() {
       ? (() => {
           try {
             const utm = geographicToUTM(latParsed.value, lonParsed.value);
-            return { lat: latParsed.value, lon: lonParsed.value, utm, error: null as string | null };
+            const ecef = geodeticToEcef(latParsed.value, lonParsed.value);
+            return { lat: latParsed.value, lon: lonParsed.value, utm, ecef, error: null as string | null };
           } catch (err: any) {
-            return { lat: latParsed.value, lon: lonParsed.value, utm: null, error: err.message as string };
+            return { lat: latParsed.value, lon: lonParsed.value, utm: null, ecef: null, error: err.message as string };
           }
         })()
       : null;
@@ -100,7 +157,7 @@ function CoordinatesSection() {
     }
   })();
 
-  // ECEF (XYZ geocêntrico) → Geográficas
+  // ECEF → Geográficas
   const [xText, setXText] = useState('4017003.1235');
   const [yText, setYText] = useState('-4252810.1233');
   const [zText, setZText] = useState('-2532724.1772');
@@ -116,6 +173,19 @@ function CoordinatesSection() {
     }
   })();
 
+  const modeButton = (id: typeof mode, label: string) => (
+    <button
+      type="button"
+      onClick={() => setMode(id)}
+      aria-pressed={mode === id}
+      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
+        mode === id ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -123,41 +193,15 @@ function CoordinatesSection() {
           <Globe2 className="w-5 h-5 text-ibge-blue" />
           Coordenadas ↔ UTM ↔ ECEF
         </h3>
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex-wrap">
-          <button
-            type="button"
-            onClick={() => setMode('geo2utm')}
-            aria-pressed={mode === 'geo2utm'}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              mode === 'geo2utm' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Geográficas → UTM
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('utm2geo')}
-            aria-pressed={mode === 'utm2geo'}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              mode === 'utm2geo' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            UTM → Geográficas
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('ecef')}
-            aria-pressed={mode === 'ecef'}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              mode === 'ecef' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            ECEF → Geográficas
-          </button>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex-wrap" role="group" aria-label="Modo de conversão de coordenadas">
+          {modeButton('geo2utm', 'Geográficas → UTM')}
+          {modeButton('utm2geo', 'UTM → Geográficas')}
+          {modeButton('ecef', 'ECEF → Geográficas')}
         </div>
       </div>
 
-      {mode === 'geo2utm' ? (        <>
+      {mode === 'geo2utm' && (
+        <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass} htmlFor="conv-lat">Latitude</label>
@@ -172,28 +216,44 @@ function CoordinatesSection() {
           </div>
           <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
             {geoResult ? (
-              <>
-                {geoResult.error ? (
-                  <ErrorNote message={geoResult.error} />
-                ) : (
-                  <>
-                    <ResultRow label="Decimais" value={`${geoResult.lat.toFixed(7)}°, ${geoResult.lon.toFixed(7)}°`} />
-                    <ResultRow label="GMS" value={`${decToDms(geoResult.lat, true)} / ${decToDms(geoResult.lon, false)}`} />
-                    <ResultRow label="UTM (WGS84 ≈ SIRGAS2000)" value={formatUTM(geoResult.utm!, 3)} />
-                    <ResultRow label="Fuso / Meridiano central" value={`${geoResult.utm!.zone}${geoResult.utm!.hemisphere} · MC ${utmZoneCentralMeridian(geoResult.utm!.zone)}°`} />
-                    <ResultRow label="ECEF (XYZ geocêntrico)" value={(() => {
-                      const e = geodeticToEcef(geoResult.lat, geoResult.lon);
-                      return `X ${e.x.toFixed(3)} · Y ${e.y.toFixed(3)} · Z ${e.z.toFixed(3)} (m)`;
-                    })()} />
-                  </>
-                )}
-              </>
+              geoResult.error ? (
+                <ErrorNote message={geoResult.error} />
+              ) : (
+                <>
+                  <ResultRow
+                    label="Decimais"
+                    value={`${geoResult.lat.toFixed(7)}°, ${geoResult.lon.toFixed(7)}°`}
+                    copyText={`${geoResult.lat.toFixed(7)}, ${geoResult.lon.toFixed(7)}`}
+                  />
+                  <ResultRow
+                    label="GMS"
+                    value={`${decToDms(geoResult.lat, true)} / ${decToDms(geoResult.lon, false)}`}
+                    copyText={`${decToDms(geoResult.lat, true)} / ${decToDms(geoResult.lon, false)}`}
+                  />
+                  <ResultRow
+                    label="UTM (WGS84 ≈ SIRGAS2000)"
+                    value={formatUTM(geoResult.utm!, 3)}
+                    copyText={formatUTM(geoResult.utm!, 3)}
+                  />
+                  <ResultRow
+                    label="Fuso / Meridiano central"
+                    value={`${geoResult.utm!.zone}${geoResult.utm!.hemisphere} · MC ${utmZoneCentralMeridian(geoResult.utm!.zone)}°`}
+                  />
+                  <ResultRow
+                    label="ECEF (XYZ geocêntrico)"
+                    value={`X ${geoResult.ecef!.x.toFixed(3)} · Y ${geoResult.ecef!.y.toFixed(3)} · Z ${geoResult.ecef!.z.toFixed(3)} (m)`}
+                    copyText={`${geoResult.ecef!.x.toFixed(3)}, ${geoResult.ecef!.y.toFixed(3)}, ${geoResult.ecef!.z.toFixed(3)}`}
+                  />
+                </>
+              )
             ) : (
               <p className="text-xs text-slate-500 dark:text-slate-400">Digite as duas coordenadas para converter.</p>
             )}
           </div>
         </>
-      ) : mode === 'utm2geo' ? (
+      )}
+
+      {mode === 'utm2geo' && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
@@ -221,14 +281,25 @@ function CoordinatesSection() {
               <ErrorNote message={utmResult.error} />
             ) : (
               <>
-                <ResultRow label="Latitude" value={`${utmResult.geo!.lat.toFixed(7)}°`} />
-                <ResultRow label="Longitude" value={`${utmResult.geo!.lon.toFixed(7)}°`} />
-                <ResultRow label="GMS" value={`${decToDms(utmResult.geo!.lat, true)} / ${decToDms(utmResult.geo!.lon, false)}`} />
+                <ResultRow label="Latitude" value={`${utmResult.geo!.lat.toFixed(7)}°`} copyText={utmResult.geo!.lat.toFixed(7)} />
+                <ResultRow label="Longitude" value={`${utmResult.geo!.lon.toFixed(7)}°`} copyText={utmResult.geo!.lon.toFixed(7)} />
+                <ResultRow
+                  label="GMS"
+                  value={`${decToDms(utmResult.geo!.lat, true)} / ${decToDms(utmResult.geo!.lon, false)}`}
+                  copyText={`${decToDms(utmResult.geo!.lat, true)} / ${decToDms(utmResult.geo!.lon, false)}`}
+                />
+                <ResultRow
+                  label="Decimais (par)"
+                  value={`${utmResult.geo!.lat.toFixed(7)}, ${utmResult.geo!.lon.toFixed(7)}`}
+                  copyText={`${utmResult.geo!.lat.toFixed(7)}, ${utmResult.geo!.lon.toFixed(7)}`}
+                />
               </>
             )}
           </div>
         </>
-      ) : (
+      )}
+
+      {mode === 'ecef' && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -249,11 +320,19 @@ function CoordinatesSection() {
               <ErrorNote message={ecefResult.error} />
             ) : (
               <>
-                <ResultRow label="Latitude" value={`${ecefResult.geo!.lat.toFixed(7)}°`} />
-                <ResultRow label="Longitude" value={`${ecefResult.geo!.lon.toFixed(7)}°`} />
-                <ResultRow label="GMS" value={`${decToDms(ecefResult.geo!.lat, true)} / ${decToDms(ecefResult.geo!.lon, false)}`} />
-                <ResultRow label="UTM (WGS84 ≈ SIRGAS2000)" value={formatUTM(geographicToUTM(ecefResult.geo!.lat, ecefResult.geo!.lon), 3)} />
-                <ResultRow label="Altitude elipsoidal (h)" value={`${ecefResult.geo!.h.toFixed(3)} m`} />
+                <ResultRow label="Latitude" value={`${ecefResult.geo!.lat.toFixed(7)}°`} copyText={ecefResult.geo!.lat.toFixed(7)} />
+                <ResultRow label="Longitude" value={`${ecefResult.geo!.lon.toFixed(7)}°`} copyText={ecefResult.geo!.lon.toFixed(7)} />
+                <ResultRow
+                  label="GMS"
+                  value={`${decToDms(ecefResult.geo!.lat, true)} / ${decToDms(ecefResult.geo!.lon, false)}`}
+                  copyText={`${decToDms(ecefResult.geo!.lat, true)} / ${decToDms(ecefResult.geo!.lon, false)}`}
+                />
+                <ResultRow
+                  label="UTM (WGS84 ≈ SIRGAS2000)"
+                  value={formatUTM(geographicToUTM(ecefResult.geo!.lat, ecefResult.geo!.lon), 3)}
+                  copyText={formatUTM(geographicToUTM(ecefResult.geo!.lat, ecefResult.geo!.lon), 3)}
+                />
+                <ResultRow label="Altitude elipsoidal (h)" value={`${ecefResult.geo!.h.toFixed(3)} m`} copyText={ecefResult.geo!.h.toFixed(3)} />
               </>
             )}
           </div>
@@ -287,6 +366,9 @@ function AltimetrySection() {
 
   const Hshown = H ?? Hcalc;
   const hShown = h ?? hCalc;
+
+  const formatMetersFt = (v: number | null) =>
+    v === null ? '—' : `${v.toFixed(3)} m · ${convertLength(v, 'm', 'ft').toFixed(3)} ft`;
 
   const consultarN = async () => {
     setLookup({ loading: true });
@@ -329,177 +411,197 @@ function AltimetrySection() {
   };
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-        <Mountain className="w-5 h-5 text-ibge-green" />
-        Altimetria: h ↔ H ↔ N
-      </h3>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        Informe dois valores e o terceiro é calculado: H = h − N. No Brasil N é negativo (geóide abaixo do elipsoide).
-        Não tem N? Consulte o modelo geoidal oficial do IBGE para o ponto.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className={labelClass} htmlFor="conv-h">Altitude elipsoidal (h)</label>
-          <input id="conv-h" type="text" value={hText} onChange={e => setHText(e.target.value)} className={inputClass} placeholder="ex.: 850.123" />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="conv-n">Ondulação geoidal (N)</label>
-          <input id="conv-n" type="text" value={NText} onChange={e => setNText(e.target.value)} className={inputClass} placeholder="ex.: -19.456" />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="conv-H">Altitude ortométrica (H)</label>
-          <input id="conv-H" type="text" value={hOrtoText} onChange={e => setHOrtoText(e.target.value)} className={inputClass} placeholder="ex.: 869.579" />
-        </div>
-      </div>
-
-      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3">
-        <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue">
-          Consultar N no modelo geoidal
+    <section className="space-y-6">
+      {/* Calculadora h ↔ H ↔ N */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
+          <Mountain className="w-5 h-5 text-ibge-green" />
+          Calculadora h ↔ H ↔ N
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Informe dois valores e o terceiro é calculado: H = h − N. No Brasil N é negativo (geóide abaixo do
+          elipsoide) — mas não no Sul, onde N é positivo.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_auto] gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className={labelClass} htmlFor="conv-geoid-model">Modelo</label>
-            <select id="conv-geoid-model" value={modelId} onChange={e => setModelId(e.target.value as GeoidModelId)} className={inputClass}>
-              {GEOID_MODELS.map(m => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
+            <label className={labelClass} htmlFor="conv-h">Altitude elipsoidal (h)</label>
+            <input id="conv-h" type="text" value={hText} onChange={e => setHText(e.target.value)} className={inputClass} placeholder="ex.: 850.123" />
           </div>
           <div>
-            <label className={labelClass} htmlFor="conv-geo-lat">Latitude</label>
-            <input id="conv-geo-lat" type="text" value={lookupLat} onChange={e => setLookupLat(e.target.value)} className={inputClass} placeholder="-23.5505" />
+            <label className={labelClass} htmlFor="conv-n">Ondulação geoidal (N)</label>
+            <input id="conv-n" type="text" value={NText} onChange={e => setNText(e.target.value)} className={inputClass} placeholder="ex.: -19.456" />
           </div>
           <div>
-            <label className={labelClass} htmlFor="conv-geo-lon">Longitude</label>
-            <input id="conv-geo-lon" type="text" value={lookupLon} onChange={e => setLookupLon(e.target.value)} className={inputClass} placeholder="-46.6333" />
+            <label className={labelClass} htmlFor="conv-H">Altitude ortométrica (H)</label>
+            <input id="conv-H" type="text" value={hOrtoText} onChange={e => setHOrtoText(e.target.value)} className={inputClass} placeholder="ex.: 869.579" />
           </div>
-          <button
-            type="button"
-            onClick={consultarN}
-            disabled={lookup.loading}
-            className="px-4 py-2 bg-ibge-blue hover:bg-ibge-blue/90 text-white font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
-          >
-            {lookup.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Info className="w-4 h-4" />}
-            Buscar N
-          </button>
         </div>
-        {lookup.error && <ErrorNote message={lookup.error} />}
-        {lookup.modelo && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            N preenchido acima · <span className="font-mono font-semibold">{lookup.modelo}</span> · fonte: {lookup.fonte}
-            {lookup.incerteza !== null && lookup.incerteza !== undefined && <> · Incerteza: ±{lookup.incerteza.toFixed(2)} m</>}
-            {' '}· {modelId === 'HGEOHNOR' ? 'H referida ao RN2015 (Imbituba), realização REALT-2018.' : 'MSL do EGM96 (mesma referência de arquivos KML).'}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between gap-2">
+              h (elipsoidal)
+              {hShown !== null && <CopyChip text={hShown.toFixed(3)} label="Copiar h" />}
+            </p>
+            <p className="font-mono font-bold text-slate-900 dark:text-white">{formatMetersFt(hShown)}</p>
+          </div>
+          <div className="p-3 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue mb-1 flex items-center justify-between gap-2">
+              N (ondulação)
+              {N !== null && <CopyChip text={N.toFixed(3)} label="Copiar N" />}
+            </p>
+            <p className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue">{formatMetersFt(N)}</p>
+          </div>
+          <div className="p-3 bg-ibge-green/5 dark:bg-ibge-green/10 rounded-xl border border-ibge-green/20">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-green mb-1 flex items-center justify-between gap-2">
+              H (ortométrica){Hcalc !== null && H === null ? ' · calculada' : ''}
+              {Hshown !== null && <CopyChip text={Hshown.toFixed(3)} label="Copiar H" />}
+            </p>
+            <p className="font-mono font-bold text-ibge-green">{formatMetersFt(Hshown)}</p>
+          </div>
+        </div>
+        {(Hcalc !== null || hCalc !== null) && (
+          <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            {Hcalc !== null && H === null && `H = h − N = ${h!.toFixed(3)} − (${N!.toFixed(3)}) = ${Hcalc.toFixed(3)} m`}
+            {Hcalc !== null && H === null && hCalc !== null && ' · '}
+            {hCalc !== null && h === null && `h = H + N = ${H!.toFixed(3)} + (${N!.toFixed(3)}) = ${hCalc.toFixed(3)} m`}
           </p>
         )}
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+      {/* Sistemas abertos e modelo oficial */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
+          <Globe2 className="w-5 h-5 text-ibge-blue" />
+          Obter N e altitudes de fontes externas
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Modelo geoidal oficial (IBGE) ou global aberto (EGM96), busca de lugar (OpenStreetMap) e terreno (DEM
+          Copernicus via Open-Meteo). Os resultados preenchem a calculadora acima.
+        </p>
+
+        <div className="space-y-5">
           <div>
-            <label className={labelClass} htmlFor="conv-place">Buscar lugar (OpenStreetMap)</label>
-            <input
-              id="conv-place"
-              type="text"
-              value={placeQuery}
-              onChange={e => setPlaceQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarLugar(); } }}
-              className={inputClass}
-              placeholder="ex.: Praça da Sé, São Paulo"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={buscarLugar}
-            disabled={placeSearching}
-            className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
-          >
-            {placeSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            Buscar
-          </button>
-        </div>
-        {placeResults && (
-          placeResults.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">Nenhum lugar encontrado.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {placeResults.map((r, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => escolherLugar(r)}
-                  title={r.displayName}
-                  className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-ibge-blue dark:hover:border-ibge-light-blue transition-colors truncate max-w-full"
-                >
-                  {r.displayName.split(',').slice(0, 3).join(', ')}
-                </button>
-              ))}
-            </div>
-          )
-        )}
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={consultarDem}
-            disabled={dem.loading}
-            className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center gap-2 whitespace-nowrap"
-          >
-            {dem.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mountain className="w-4 h-4" />}
-            Altitude do terreno (DEM aberto)
-          </button>
-          {dem.elevation !== undefined && (
-            <>
-              <span className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
-                ≈ {dem.elevation.toFixed(1)} m
-                <span className="text-slate-400 font-normal"> ({dem.model} · Open-Meteo)</span>
-              </span>
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">1 · Ondulação geoidal (N)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_auto] gap-3 items-end">
+              <div>
+                <label className={labelClass} htmlFor="conv-geoid-model">Modelo</label>
+                <select id="conv-geoid-model" value={modelId} onChange={e => setModelId(e.target.value as GeoidModelId)} className={inputClass}>
+                  {GEOID_MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="conv-geo-lat">Latitude</label>
+                <input id="conv-geo-lat" type="text" value={lookupLat} onChange={e => setLookupLat(e.target.value)} className={inputClass} placeholder="-23.5505" />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="conv-geo-lon">Longitude</label>
+                <input id="conv-geo-lon" type="text" value={lookupLon} onChange={e => setLookupLon(e.target.value)} className={inputClass} placeholder="-46.6333" />
+              </div>
               <button
                 type="button"
-                onClick={() => setHOrtoText(String(dem.elevation))}
-                className="text-xs font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline"
+                onClick={consultarN}
+                disabled={lookup.loading}
+                className="px-4 py-2 bg-ibge-blue hover:bg-ibge-blue/90 text-white font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
               >
-                usar como H
+                {lookup.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Info className="w-4 h-4" />}
+                Buscar N
               </button>
-            </>
-          )}
+            </div>
+            {lookup.error && <ErrorNote message={lookup.error} />}
+            {lookup.modelo && (
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                N preenchido na calculadora · <span className="font-mono font-semibold">{lookup.modelo}</span> · fonte: {lookup.fonte}
+                {lookup.incerteza !== null && lookup.incerteza !== undefined && <> · Incerteza: ±{lookup.incerteza.toFixed(2)} m</>}
+                {' '}· {modelId === 'HGEOHNOR' ? 'H referida ao RN2015 (Imbituba), realização REALT-2018.' : 'MSL do EGM96 (mesma referência de arquivos KML).'}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">2 · Encontrar o lugar</p>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+              <div>
+                <label className={labelClass} htmlFor="conv-place">Buscar lugar (OpenStreetMap)</label>
+                <input
+                  id="conv-place"
+                  type="text"
+                  value={placeQuery}
+                  onChange={e => setPlaceQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarLugar(); } }}
+                  className={inputClass}
+                  placeholder="ex.: Praça da Sé, São Paulo"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={buscarLugar}
+                disabled={placeSearching}
+                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                {placeSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                Buscar
+              </button>
+            </div>
+            {placeResults && (
+              placeResults.length === 0 ? (
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Nenhum lugar encontrado.</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {placeResults.map((r, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => escolherLugar(r)}
+                      title={r.displayName}
+                      className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-ibge-blue dark:hover:border-ibge-light-blue transition-colors truncate max-w-full"
+                    >
+                      {r.displayName.split(',').slice(0, 3).join(', ')}
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">3 · Terreno (DEM aberto)</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={consultarDem}
+                disabled={dem.loading}
+                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center gap-2 whitespace-nowrap"
+              >
+                {dem.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mountain className="w-4 h-4" />}
+                Altitude do terreno
+              </button>
+              {dem.elevation !== undefined && (
+                <>
+                  <span className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                    ≈ {dem.elevation.toFixed(1)} m
+                    <span className="text-slate-400 font-normal"> ({dem.model} · Open-Meteo)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setHOrtoText(String(dem.elevation))}
+                    className="text-xs font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline"
+                  >
+                    usar como H
+                  </button>
+                </>
+              )}
+            </div>
+            {dem.error && <ErrorNote message={dem.error} />}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+              O DEM dá a altitude de terreno (≈ ortométrica): use como H e combine com N para estimar o que o GPS
+              mediria (h = H + N).
+            </p>
+          </div>
         </div>
-        {dem.error && <ErrorNote message={dem.error} />}
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-          Sistemas abertos integrados: modelo geoidal EGM96 (NGA, avaliado no navegador), DEM Copernicus via
-          Open-Meteo e geocodificação Nominatim/OSM. O DEM dá a altitude de terreno (≈ ortométrica): combine com N
-          para estimar o que o GPS mediria (h = H + N).
-        </p>
       </div>
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400 mb-1">h (elipsoidal)</p>
-          <p className="font-mono font-bold text-slate-900 dark:text-white">
-            {hShown !== null ? `${hShown.toFixed(3)} m` : '—'}
-            <span className="text-xs font-normal text-slate-500"> · {(convertLength(hShown ?? 0, 'm', 'ft')).toFixed(3)} ft</span>
-          </p>
-        </div>
-        <div className="p-3 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue mb-1">N (ondulação)</p>
-          <p className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue">
-            {N !== null ? `${N.toFixed(3)} m` : '—'}
-            <span className="text-xs font-normal"> · {N !== null ? convertLength(N, 'm', 'ft').toFixed(3) : '—'} ft</span>
-          </p>
-        </div>
-        <div className="p-3 bg-ibge-green/5 dark:bg-ibge-green/10 rounded-xl border border-ibge-green/20">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-green mb-1">H (ortométrica){Hcalc !== null && H === null ? ' · calculada' : ''}</p>
-          <p className="font-mono font-bold text-ibge-green">
-            {Hshown !== null ? `${Hshown.toFixed(3)} m` : '—'}
-            <span className="text-xs font-normal"> · {Hshown !== null ? convertLength(Hshown, 'm', 'ft').toFixed(3) : '—'} ft</span>
-          </p>
-        </div>
-      </div>
-      {(Hcalc !== null || hCalc !== null) && (
-        <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
-          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          {Hcalc !== null && H === null && `H = h − N = ${h!.toFixed(3)} − (${N!.toFixed(3)}) = ${Hcalc.toFixed(3)} m`}
-          {Hcalc !== null && H === null && hCalc !== null && ' · '}
-          {hCalc !== null && h === null && `h = H + N = ${H!.toFixed(3)} + (${N!.toFixed(3)}) = ${hCalc.toFixed(3)} m`}
-        </p>
-      )}
     </section>
   );
 }
@@ -536,7 +638,7 @@ function DatumSection() {
       </h3>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
         Helmert de 3 parâmetros. SAD69(96)→SIRGAS2000 usa os parâmetros oficiais do IBGE (EPSG:15485, acurácia ~5 m);
-        WGS84 ≈ SIRGAS2000 (equivalentes a poucos cm).
+        SAD69 clássico usa o registro histórico EPSG (−57, +1, −41, ~10 m); WGS84 ≈ SIRGAS2000 (equivalentes a poucos cm).
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
@@ -573,9 +675,13 @@ function DatumSection() {
             <ResultRow
               label={`${DATUMS[fromDatum].label} → ${DATUMS[toDatum].label}`}
               value={fromDatum === toDatum ? 'Datums iguais — sem transformação' : `${result.lat.toFixed(7)}°, ${result.lon.toFixed(7)}°`}
+              copyText={fromDatum === toDatum ? undefined : `${result.lat.toFixed(7)}, ${result.lon.toFixed(7)}`}
             />
             {fromDatum !== toDatum && (
               <ResultRow label="Deslocamento em superfície" value={displacement !== null ? `≈ ${displacement.toFixed(2)} m` : '—'} />
+            )}
+            {fromDatum !== toDatum && (
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{DATUMS[toDatum].note}</p>
             )}
           </>
         ) : (
@@ -607,13 +713,35 @@ function DistanceSection() {
         { lat: bLat.value!, lon: bLon.value! }
       )
     : null;
+  const distanceText =
+    distance !== null
+      ? `${convertLength(distance, 'm', unit).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${unit}`
+      : null;
+
+  const swap = () => {
+    setALatText(bLatText);
+    setALonText(bLonText);
+    setBLatText(aLatText);
+    setBLonText(aLonText);
+  };
 
   return (
     <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-        <MoveHorizontal className="w-5 h-5 text-ibge-blue" />
-        Distância entre dois pontos
-      </h3>
+      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+          <MoveHorizontal className="w-5 h-5 text-ibge-blue" />
+          Distância entre dois pontos
+        </h3>
+        <button
+          type="button"
+          onClick={swap}
+          className="text-xs font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline flex items-center gap-1"
+          title="Trocar A e B"
+        >
+          <ArrowLeftRight className="w-3.5 h-3.5" />
+          trocar A ↔ B
+        </button>
+      </div>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
         Distância de grande círculo (Haversine, esfera média IUGG R = 6 371 008,8 m).
       </p>
@@ -640,13 +768,12 @@ function DistanceSection() {
             <option value="mi">milhas (mi)</option>
           </select>
         </div>
-        <div className="flex-1 min-w-[180px] p-3 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue mb-0.5">Distância</p>
-          <p className="font-mono text-lg font-bold text-slate-900 dark:text-white">
-            {distance !== null
-              ? `${convertLength(distance, 'm', unit).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${unit}`
-              : '—'}
-          </p>
+        <div className="flex-1 min-w-[180px] p-3 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20 flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue mb-0.5">Distância</p>
+            <p className="font-mono text-lg font-bold text-slate-900 dark:text-white">{distanceText ?? '—'}</p>
+          </div>
+          {distanceText && <CopyChip text={distanceText} label="Copiar distância" />}
         </div>
       </div>
       {[aLat, aLon, bLat, bLon].some(r => r.error) && (
@@ -657,20 +784,41 @@ function DistanceSection() {
 }
 
 export function ConversionsPanel() {
+  const [section, setSection] = useState<SectionId>('coordenadas');
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3 p-4 bg-ibge-blue/5 dark:bg-ibge-blue/10 border border-ibge-blue/20 rounded-2xl">
-        <Ruler className="w-5 h-5 text-ibge-blue dark:text-ibge-light-blue shrink-0 mt-0.5" />
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          Conversões calculadas localmente (sem API), com o mesmo núcleo validado por testes automatizados contra o PROJ:
-          coordenadas geográficas ↔ UTM, altitudes h/H/N, datums e unidades (m, km, ft, ftUS, mi).
+    <div className="space-y-5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+          Conversores offline sobre o mesmo núcleo validado por testes contra o PROJ. Fontes externas (IBGE,
+          OpenStreetMap, Open-Meteo) só entram quando você clica em buscar.
         </p>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto" role="tablist" aria-label="Seções do painel de conversões">
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={section === s.id}
+              onClick={() => setSection(s.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                section === s.id
+                  ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {s.icon}
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        <CoordinatesSection />
-        <AltimetrySection />
-        <DatumSection />
-        <DistanceSection />
+
+      <div>
+        {section === 'coordenadas' && <CoordinatesSection />}
+        {section === 'altimetria' && <AltimetrySection />}
+        {section === 'datum' && <DatumSection />}
+        {section === 'medidas' && <DistanceSection />}
       </div>
     </div>
   );
