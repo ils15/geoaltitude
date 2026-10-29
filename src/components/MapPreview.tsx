@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, FeatureGroup, WMSTileLayer, GeoJSON, Polyline } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import { HgeoResult } from '../lib/api';
 import { fetchRBMCStations, RBMCStation } from '../lib/rbmc';
 import { exportCSV, exportKML, exportDXF } from '../lib/export';
 import { polygonArea, polygonPerimeter, polylineLength } from '../lib/geodesy';
+import { FitBoundsControl } from './FitBoundsControl';
 import { Map as MapIcon, Layers, Download, ExternalLink, Radio, Ruler } from 'lucide-react';
 import L from 'leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
@@ -95,6 +96,12 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [connectPoints, setConnectPoints] = useState(false);
 
+  // Coordenadas memoizadas para o zoom-to-layer (não refitar a cada render)
+  const pointCoords = useMemo(
+    () => points.map(p => [parseFloat(p.lat), parseFloat(p.long)] as [number, number]),
+    [points]
+  );
+
   const upsertMeasurement = (layer: L.Layer) => {
     const m = measureLayer(layer);
     if (!m) return;
@@ -177,12 +184,13 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
       </div>
       
       <div className="flex-1 relative z-0">
-        <MapContainer
-          center={center}
-          zoom={zoom}
-          style={{ height: '100%', width: '100%' }}
-          className="z-0"
-        >
+          <MapContainer
+            center={center}
+            zoom={zoom}
+            style={{ height: '100%', width: '100%' }}
+            className="z-0"
+          >
+            <FitBoundsControl coords={pointCoords} maxZoom={13} />
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="OpenStreetMap">
               <TileLayer

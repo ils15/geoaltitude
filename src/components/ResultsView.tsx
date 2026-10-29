@@ -10,6 +10,7 @@ import Papa from 'papaparse';
 import { Toaster, toast } from 'react-hot-toast';
 import { decToDms } from '../lib/geodesy';
 import { downloadText } from '../lib/export';
+import { FitBoundsControl } from './FitBoundsControl';
 
 const SkeletonRow = () => (
   <tr className="animate-pulse border-b border-slate-100 dark:border-slate-800/50">
@@ -90,6 +91,10 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
 
   const centerLat = results.reduce((acc, curr) => acc + parseFloat(curr.lat), 0) / results.length;
   const centerLon = results.reduce((acc, curr) => acc + parseFloat(curr.long), 0) / results.length;
+  const resultCoords = React.useMemo(
+    () => results.map(r => [parseFloat(r.lat), parseFloat(r.long)] as [number, number]),
+    [results]
+  );
 
   const downloadResults = () => {
     const csv = Papa.unparse(results);
@@ -311,11 +316,12 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
         </div>
       ) : (
         <div className="h-[500px] w-full relative z-0">
-          <MapContainer 
-            center={[centerLat, centerLon]} 
-            zoom={results.length === 1 ? 13 : 5} 
+          <MapContainer
+            center={[centerLat, centerLon]}
+            zoom={results.length === 1 ? 13 : 5}
             style={{ height: '100%', width: '100%' }}
           >
+            <FitBoundsControl coords={resultCoords} maxZoom={13} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
