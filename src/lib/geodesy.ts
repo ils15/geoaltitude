@@ -243,7 +243,7 @@ export function formatUTM(utm: UTMCoordinate, decimals = 2): string {
 
 // ===== Datums (Helmert de 3 parâmetros) =====
 
-export type DatumId = 'SIRGAS2000' | 'WGS84' | 'SAD69_96';
+export type DatumId = 'SIRGAS2000' | 'WGS84' | 'SAD69_96' | 'SAD69_CLASSICO';
 
 export interface DatumDefinition {
   id: DatumId;
@@ -281,23 +281,30 @@ export const DATUMS: Record<DatumId, DatumDefinition> = {
     helmertToSIRGAS2000: [-67.35, 3.88, -38.22],
     note: 'Realização 1996 do SAD69. Transformação oficial IBGE para SIRGAS2000 (Helmert 3 parâmetros, acurácia ~5 m).',
   },
+  SAD69_CLASSICO: {
+    id: 'SAD69_CLASSICO',
+    label: 'SAD69 (clássico 1969)',
+    ellipsoid: SOUTH_AMERICAN_1969,
+    helmertToSIRGAS2000: [-57, 1, -41],
+    note: 'SAD69 original com os parâmetros clássicos para WGS84 (ΔX=-57, ΔY=+1, ΔZ=-41, registro histórico EPSG; acurácia ~10 m). Útil para resgatar levantamentos antigos.',
+  },
 };
 
-function geodeticToECEF(ellipsoid: Ellipsoid, lat: number, lon: number): { x: number; y: number; z: number } {
+function geodeticToECEF(ellipsoid: Ellipsoid, lat: number, lon: number, h = 0): { x: number; y: number; z: number } {
   const e2 = ellipsoid.f * (2 - ellipsoid.f);
   const φ = toRad(lat), λ = toRad(lon);
   const N = ellipsoid.a / Math.sqrt(1 - e2 * Math.sin(φ) * Math.sin(φ));
   return {
-    x: N * Math.cos(φ) * Math.cos(λ),
-    y: N * Math.cos(φ) * Math.sin(λ),
-    z: N * (1 - e2) * Math.sin(φ),
+    x: (N + h) * Math.cos(φ) * Math.cos(λ),
+    y: (N + h) * Math.cos(φ) * Math.sin(λ),
+    z: (N * (1 - e2) + h) * Math.sin(φ),
   };
 }
 
-function ecefToGeodetic(ellipsoid: Ellipsoid, x: number, y: number, z: number): { lat: number; lon: number } {
+function ecefToGeodetic(ellipsoid: Ellipsoid, x: number, y: number, z: number): { lat: number; lon: number; h: number } {
   const e2 = ellipsoid.f * (2 - ellipsoid.f);
   const p = Math.hypot(x, y);
-  if (p === 0 && z === 0) return { lat: 0, lon: 0 };
+  if (p === 0 && z === 0) return { lat: 0, lon: 0, h: 0 };
   const lon = Math.atan2(y, x);
   let lat = Math.atan2(z, p * (1 - e2));
   for (let i = 0; i < 4; i++) {
@@ -305,15 +312,16 @@ function ecefToGeodetic(ellipsoid: Ellipsoid, x: number, y: number, z: number): 
     const h = p / Math.cos(lat) - N;
     lat = Math.atan2(z, p * (1 - (e2 * N) / (N + h)));
   }
-  return { lat: toDeg(lat), lon: toDeg(lon) };
+  const N = ellipsoid.a / Math.sqrt(1 - e2 * Math.sin(lat) * Math.sin(lat));
+  const h = p / Math.cos(lat) - N;
+  return { lat: toDeg(lat), lon: toDeg(lon), h };
 }
 
 /**
  * Transforma coordenadas geodésicas entre datums suportados via Helmert
  * de 3 parâmetros (geocêntrico). WGS84 ↔ SIRGAS2000 é tratado como nulo.
  */
-export function transformDatum(lat: number, lon: number, from: DatumId, to: DatumId): { lat: number; lon: number } {
-  if (!DATUMS[from] || !DATUMS[to]) throw new Error('Datum não suportado.');
+export function transformDatum(lat: number, lon: number, from: DatumId, to: DatumId): { lat: number; lon: number } {  if (!DATUMS[from] || !DATUMS[to]) throw new Error('Datum não suportado.');
   if (from === to) return { lat, lon };
 
   const source = DATUMS[from];
@@ -329,6 +337,16 @@ export function transformDatum(lat: number, lon: number, from: DatumId, to: Datu
   const y = ecef.y + dy - ty;
   const z = ecef.z + dz - tz;
   return ecefToGeodetic(target.ellipsoid, x, y, z);
+}
+
+/** Coordenadas geodésicas → ECEF (XYZ geocêntrico, metros). */
+export function geodeticToEcef(lat: number, lon: number, ellipsoid: Ellipsoid = WGS84, h = 0) {
+  return geodeticToECEF(ellipsoid, lat, lon, h);
+}
+
+/** ECEF (XYZ geocêntrico, metros) → coordenadas geodésicas. */
+export function ecefToGeodeticCoords(x: number, y: number, z: number, ellipsoid: Ellipsoid = WGS84) {
+  return ecefToGeodetic(ellipsoid, x, y, z);
 }
 
 // ===== Altimetria: h (elipsoidal), N (ondulação geoidal), H (ortométrica) =====

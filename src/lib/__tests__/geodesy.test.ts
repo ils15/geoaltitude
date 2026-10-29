@@ -8,6 +8,8 @@ import {
   formatUTM,
   lonToUtmZone,
   transformDatum,
+  geodeticToEcef,
+  ecefToGeodeticCoords,
   orthometricHeight,
   ellipsoidalHeight,
   parseFatorConversao,
@@ -230,6 +232,66 @@ describe('Datum: SAD69(96) → SIRGAS2000 (vetores PROJ/EPSG:15485)', () => {
     expect(r.lat).toBe(-22.9);
     expect(r.lon).toBe(-43.2);
     expect(transformDatum(-22.9, -43.2, 'SIRGAS2000', 'SIRGAS2000').lat).toBe(-22.9);
+  });
+});
+
+describe('Datum: SAD69 clássico → SIRGAS2000 (parâmetros clássicos −57/+1/−41)', () => {
+  // Vetores gerados com pyproj (cart no elipsoide sul-americano + Helmert
+  // clássico + cart⁻¹ no GRS80); componentes identificados por magnitude.
+  const vectors: Array<[number, number, number, number]> = [
+    [-23.5505, -46.6333, -23.550979262, -46.63369912],
+    [-15.7939, -47.8828, -15.794349569, -47.883188364],
+    [-8.0476, -34.877, -8.048025498, -34.877288244],
+  ];
+
+  it.each(vectors.map(v => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3]]))(
+    'transforma %s com o Helmert clássico',
+    (_label, lat, lon, latOut, lonOut) => {
+      const result = transformDatum(lat, lon, 'SAD69_CLASSICO', 'SIRGAS2000');
+      expect(result.lat).toBeCloseTo(latOut, 7);
+      expect(result.lon).toBeCloseTo(lonOut, 7);
+    }
+  );
+
+  it('inversa volta ao original (~1 cm)', () => {
+    const forward = transformDatum(-23.5505, -46.6333, 'SAD69_CLASSICO', 'SIRGAS2000');
+    const back = transformDatum(forward.lat, forward.lon, 'SIRGAS2000', 'SAD69_CLASSICO');
+    expect(back.lat).toBeCloseTo(-23.5505, 6);
+    expect(back.lon).toBeCloseTo(-46.6333, 6);
+  });
+});
+
+describe('ECEF (XYZ geocêntrico)', () => {
+  // Vetores pyproj EPSG:4979 → EPSG:4978 (h = 0)
+  const vetores: Array<[number, number, number, number, number]> = [
+    [-23.5505, -46.6333, 4017003.1235, -4252810.1233, -2532724.1772],
+    [0.0, 3.0, 6369395.9849, 333805.8989, 0.0],
+    [38.8977, -77.0365, 1115026.1988, -4843785.0815, 3983484.7683],
+  ];
+
+  it.each(vetores.map(v => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3], v[4]]))(
+    'geodésica → ECEF bate com PROJ: %s',
+    (_label, lat, lon, x, y, z) => {
+      const ecef = geodeticToEcef(lat, lon);
+      expect(ecef.x).toBeCloseTo(x, 3); // 0,5 mm
+      expect(ecef.y).toBeCloseTo(y, 3);
+      expect(ecef.z).toBeCloseTo(z, 3);
+    }
+  );
+
+  it('inversa ECEF → geodésica recupera a coordenada', () => {
+    const geo = ecefToGeodeticCoords(4017003.1235, -4252810.1233, -2532724.1772);
+    expect(geo.lat).toBeCloseTo(-23.5505, 8);
+    expect(geo.lon).toBeCloseTo(-46.6333, 8);
+    expect(geo.h).toBeCloseTo(0, 4);
+  });
+
+  it('round trip com altura preserva h', () => {
+    const ecef = geodeticToEcef(-22, -43, undefined, 100);
+    const geo = ecefToGeodeticCoords(ecef.x, ecef.y, ecef.z);
+    expect(geo.lat).toBeCloseTo(-22, 9);
+    expect(geo.lon).toBeCloseTo(-43, 9);
+    expect(geo.h).toBeCloseTo(100, 6);
   });
 });
 

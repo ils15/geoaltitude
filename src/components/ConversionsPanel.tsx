@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Ruler } from 'lucide-react';
-import { getPontoDec, summarizeHgeoResult } from '../lib/api';
+import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Ruler, Search } from 'lucide-react';
 import {
   DATUMS,
   DatumId,
@@ -8,7 +7,9 @@ import {
   convertLength,
   decToDms,
   ellipsoidalHeight,
+  ecefToGeodeticCoords,
   formatUTM,
+  geodeticToEcef,
   geographicToUTM,
   haversineDistance,
   orthometricHeight,
@@ -17,6 +18,9 @@ import {
   utmToGeographic,
   utmZoneCentralMeridian,
 } from '../lib/geodesy';
+import { GEOID_MODELS, GeoidModelId, fetchUndulation } from '../lib/geoidModels';
+import { fetchTerrainElevation } from '../lib/openServices';
+import { forwardGeocode, ForwardGeocodeResult } from '../lib/geocoding';
 
 const inputClass =
   'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all';
@@ -59,7 +63,7 @@ function ErrorNote({ message }: { message: string }) {
 // ===== 1. Coordenadas ↔ UTM =====
 
 function CoordinatesSection() {
-  const [mode, setMode] = useState<'geo2utm' | 'utm2geo'>('geo2utm');
+  const [mode, setMode] = useState<'geo2utm' | 'utm2geo' | 'ecef'>('geo2utm');
 
   // Geográficas → UTM
   const [latText, setLatText] = useState('-23.5505');
@@ -96,14 +100,30 @@ function CoordinatesSection() {
     }
   })();
 
+  // ECEF (XYZ geocêntrico) → Geográficas
+  const [xText, setXText] = useState('4017003.1235');
+  const [yText, setYText] = useState('-4252810.1233');
+  const [zText, setZText] = useState('-2532724.1772');
+  const ecefResult = (() => {
+    const x = parseNum(xText);
+    const y = parseNum(yText);
+    const z = parseNum(zText);
+    if (x === null || y === null || z === null) return { error: 'Informe X, Y e Z em metros.' };
+    try {
+      return { geo: ecefToGeodeticCoords(x, y, z), error: null as string | null };
+    } catch (err: any) {
+      return { error: err.message as string };
+    }
+  })();
+
   return (
     <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
           <Globe2 className="w-5 h-5 text-ibge-blue" />
-          Coordenadas ↔ UTM
+          Coordenadas ↔ UTM ↔ ECEF
         </h3>
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex-wrap">
           <button
             type="button"
             onClick={() => setMode('geo2utm')}
@@ -124,11 +144,20 @@ function CoordinatesSection() {
           >
             UTM → Geográficas
           </button>
+          <button
+            type="button"
+            onClick={() => setMode('ecef')}
+            aria-pressed={mode === 'ecef'}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+              mode === 'ecef' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            ECEF → Geográficas
+          </button>
         </div>
       </div>
 
-      {mode === 'geo2utm' ? (
-        <>
+      {mode === 'geo2utm' ? (        <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass} htmlFor="conv-lat">Latitude</label>
@@ -152,6 +181,10 @@ function CoordinatesSection() {
                     <ResultRow label="GMS" value={`${decToDms(geoResult.lat, true)} / ${decToDms(geoResult.lon, false)}`} />
                     <ResultRow label="UTM (WGS84 ≈ SIRGAS2000)" value={formatUTM(geoResult.utm!, 3)} />
                     <ResultRow label="Fuso / Meridiano central" value={`${geoResult.utm!.zone}${geoResult.utm!.hemisphere} · MC ${utmZoneCentralMeridian(geoResult.utm!.zone)}°`} />
+                    <ResultRow label="ECEF (XYZ geocêntrico)" value={(() => {
+                      const e = geodeticToEcef(geoResult.lat, geoResult.lon);
+                      return `X ${e.x.toFixed(3)} · Y ${e.y.toFixed(3)} · Z ${e.z.toFixed(3)} (m)`;
+                    })()} />
                   </>
                 )}
               </>
@@ -160,7 +193,7 @@ function CoordinatesSection() {
             )}
           </div>
         </>
-      ) : (
+      ) : mode === 'utm2geo' ? (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
@@ -195,6 +228,36 @@ function CoordinatesSection() {
             )}
           </div>
         </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass} htmlFor="conv-ecef-x">X (m)</label>
+              <input id="conv-ecef-x" type="text" value={xText} onChange={e => setXText(e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="conv-ecef-y">Y (m)</label>
+              <input id="conv-ecef-y" type="text" value={yText} onChange={e => setYText(e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="conv-ecef-z">Z (m)</label>
+              <input id="conv-ecef-z" type="text" value={zText} onChange={e => setZText(e.target.value)} className={inputClass} />
+            </div>
+          </div>
+          <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+            {ecefResult.error ? (
+              <ErrorNote message={ecefResult.error} />
+            ) : (
+              <>
+                <ResultRow label="Latitude" value={`${ecefResult.geo!.lat.toFixed(7)}°`} />
+                <ResultRow label="Longitude" value={`${ecefResult.geo!.lon.toFixed(7)}°`} />
+                <ResultRow label="GMS" value={`${decToDms(ecefResult.geo!.lat, true)} / ${decToDms(ecefResult.geo!.lon, false)}`} />
+                <ResultRow label="UTM (WGS84 ≈ SIRGAS2000)" value={formatUTM(geographicToUTM(ecefResult.geo!.lat, ecefResult.geo!.lon), 3)} />
+                <ResultRow label="Altitude elipsoidal (h)" value={`${ecefResult.geo!.h.toFixed(3)} m`} />
+              </>
+            )}
+          </div>
+        </>
       )}
     </section>
   );
@@ -209,7 +272,12 @@ function AltimetrySection() {
 
   const [lookupLat, setLookupLat] = useState('-23.5505');
   const [lookupLon, setLookupLon] = useState('-46.6333');
-  const [lookup, setLookup] = useState<{ loading: boolean; error?: string; modelo?: string; incerteza?: number | null }>({ loading: false });
+  const [lookup, setLookup] = useState<{ loading: boolean; error?: string; modelo?: string; fonte?: string; incerteza?: number | null }>({ loading: false });
+  const [modelId, setModelId] = useState<GeoidModelId>('HGEOHNOR');
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState<ForwardGeocodeResult[] | null>(null);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [dem, setDem] = useState<{ loading: boolean; error?: string; elevation?: number; model?: string }>({ loading: false });
 
   const h = parseNum(hText);
   const H = parseNum(hOrtoText);
@@ -225,16 +293,38 @@ function AltimetrySection() {
     try {
       const lat = parseDmsString(lookupLat);
       const lon = parseDmsString(lookupLon);
-      const res = await getPontoDec(lat, lon);
-      const s = summarizeHgeoResult(res);
-      if (s.N === null) {
-        setLookup({ loading: false, error: 'Ponto fora da grade do modelo geoidal hgeoHNOR.' });
-        return;
-      }
+      const s = await fetchUndulation(modelId, lat, lon);
       setNText(String(s.N));
-      setLookup({ loading: false, modelo: s.modelo, incerteza: s.incerteza });
-    } catch {
-      setLookup({ loading: false, error: 'Falha ao consultar o IBGE — verifique sua conexão.' });
+      setLookup({ loading: false, modelo: s.modelo, fonte: s.fonte, incerteza: s.incerteza });
+    } catch (err: any) {
+      setLookup({ loading: false, error: err.message || 'Falha ao consultar o modelo geoidal.' });
+    }
+  };
+
+  const buscarLugar = async () => {
+    if (!placeQuery.trim()) return;
+    setPlaceSearching(true);
+    const results = await forwardGeocode(placeQuery);
+    setPlaceSearching(false);
+    setPlaceResults(results && results.length > 0 ? results : []);
+  };
+
+  const escolherLugar = (r: ForwardGeocodeResult) => {
+    setLookupLat(r.lat.toFixed(6));
+    setLookupLon(r.lon.toFixed(6));
+    setPlaceResults(null);
+    setPlaceQuery(r.displayName.split(',')[0]);
+  };
+
+  const consultarDem = async () => {
+    setDem({ loading: true });
+    try {
+      const lat = parseDmsString(lookupLat);
+      const lon = parseDmsString(lookupLon);
+      const r = await fetchTerrainElevation(lat, lon);
+      setDem({ loading: false, elevation: r.elevation, model: r.model });
+    } catch (err: any) {
+      setDem({ loading: false, error: err.message || 'Falha ao consultar o DEM aberto.' });
     }
   };
 
@@ -263,17 +353,25 @@ function AltimetrySection() {
         </div>
       </div>
 
-      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-        <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-3">
-          Consultar N no modelo geoidal (IBGE · hgeoHNOR)
+      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3">
+        <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue">
+          Consultar N no modelo geoidal
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_auto] gap-3 items-end">
           <div>
-            <label className={labelClass} htmlFor="conv-geo-lat">Latitude do ponto</label>
+            <label className={labelClass} htmlFor="conv-geoid-model">Modelo</label>
+            <select id="conv-geoid-model" value={modelId} onChange={e => setModelId(e.target.value as GeoidModelId)} className={inputClass}>
+              {GEOID_MODELS.map(m => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="conv-geo-lat">Latitude</label>
             <input id="conv-geo-lat" type="text" value={lookupLat} onChange={e => setLookupLat(e.target.value)} className={inputClass} placeholder="-23.5505" />
           </div>
           <div>
-            <label className={labelClass} htmlFor="conv-geo-lon">Longitude do ponto</label>
+            <label className={labelClass} htmlFor="conv-geo-lon">Longitude</label>
             <input id="conv-geo-lon" type="text" value={lookupLon} onChange={e => setLookupLon(e.target.value)} className={inputClass} placeholder="-46.6333" />
           </div>
           <button
@@ -288,12 +386,88 @@ function AltimetrySection() {
         </div>
         {lookup.error && <ErrorNote message={lookup.error} />}
         {lookup.modelo && (
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            N preenchido acima · Modelo: <span className="font-mono font-semibold">{lookup.modelo}</span>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            N preenchido acima · <span className="font-mono font-semibold">{lookup.modelo}</span> · fonte: {lookup.fonte}
             {lookup.incerteza !== null && lookup.incerteza !== undefined && <> · Incerteza: ±{lookup.incerteza.toFixed(2)} m</>}
-            {' '}· H referida ao RN2015 (Imbituba), realização REALT-2018.
+            {' '}· {modelId === 'HGEOHNOR' ? 'H referida ao RN2015 (Imbituba), realização REALT-2018.' : 'MSL do EGM96 (mesma referência de arquivos KML).'}
           </p>
         )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+          <div>
+            <label className={labelClass} htmlFor="conv-place">Buscar lugar (OpenStreetMap)</label>
+            <input
+              id="conv-place"
+              type="text"
+              value={placeQuery}
+              onChange={e => setPlaceQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarLugar(); } }}
+              className={inputClass}
+              placeholder="ex.: Praça da Sé, São Paulo"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={buscarLugar}
+            disabled={placeSearching}
+            className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            {placeSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            Buscar
+          </button>
+        </div>
+        {placeResults && (
+          placeResults.length === 0 ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">Nenhum lugar encontrado.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {placeResults.map((r, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => escolherLugar(r)}
+                  title={r.displayName}
+                  className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-ibge-blue dark:hover:border-ibge-light-blue transition-colors truncate max-w-full"
+                >
+                  {r.displayName.split(',').slice(0, 3).join(', ')}
+                </button>
+              ))}
+            </div>
+          )
+        )}
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={consultarDem}
+            disabled={dem.loading}
+            className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center gap-2 whitespace-nowrap"
+          >
+            {dem.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mountain className="w-4 h-4" />}
+            Altitude do terreno (DEM aberto)
+          </button>
+          {dem.elevation !== undefined && (
+            <>
+              <span className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                ≈ {dem.elevation.toFixed(1)} m
+                <span className="text-slate-400 font-normal"> ({dem.model} · Open-Meteo)</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setHOrtoText(String(dem.elevation))}
+                className="text-xs font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline"
+              >
+                usar como H
+              </button>
+            </>
+          )}
+        </div>
+        {dem.error && <ErrorNote message={dem.error} />}
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          Sistemas abertos integrados: modelo geoidal EGM96 (NGA, avaliado no navegador), DEM Copernicus via
+          Open-Meteo e geocodificação Nominatim/OSM. O DEM dá a altitude de terreno (≈ ortométrica): combine com N
+          para estimar o que o GPS mediria (h = H + N).
+        </p>
       </div>
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">

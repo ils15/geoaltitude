@@ -140,6 +140,18 @@ export function Explanation() {
               <span className="font-mono text-ibge-blue">GET /hgeohnor/pontos (~200 pts/chamada)</span>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">Modelo global alternativo</span>
+              <span className="font-mono text-ibge-blue">EGM96 (NGA, no navegador)</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">Sistemas abertos</span>
+              <span className="font-mono text-ibge-blue">Open-Meteo DEM · Nominatim/OSM</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="font-medium">Datums suportados</span>
+              <span className="font-mono text-ibge-blue">SIRGAS2000 · WGS84 · SAD69(96) · SAD69 clássico</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
               <span className="font-medium">API Provider</span>
               <span className="font-mono text-ibge-blue">IBGE Service v1</span>
             </div>
