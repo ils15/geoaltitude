@@ -14,7 +14,7 @@ export interface MeshResult {
 
 export function triangulate(
   points: ReadonlyArray<readonly [number, number]>,
-  bridgeFactor = 2.2
+  bridgeFactor = 3
 ): MeshResult {
   if (points.length < 3) return { triangles: [], droppedTriangles: 0 };
 
@@ -24,13 +24,20 @@ export function triangulate(
   const dist = (i: number, j: number) =>
     Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]);
 
-  const edges: number[] = [];
-  for (let t = 0; t < raw.length; t += 3) {
-    edges.push(dist(raw[t], raw[t + 1]), dist(raw[t + 1], raw[t + 2]), dist(raw[t + 2], raw[t]));
-  }
-  edges.sort((a, b) => a - b);
-  const median = edges[Math.floor(edges.length / 2)] || 1;
-  const limit = median * bridgeFactor;
+  // Limite baseado na distância mediana ao vizinho mais próximo: é a escala
+  // local real dos dados. A mediana global das arestas falha quando a
+  // distribuição é bimodal (ex.: dois aglomerados distantes → a mediana vira
+  // uma aresta-ponte e nada seria filtrado).
+  const nn: number[] = points.map((_, i) => {
+    let best = Infinity;
+    for (let j = 0; j < points.length; j++) {
+      if (j !== i) best = Math.min(best, dist(i, j));
+    }
+    return best;
+  });
+  nn.sort((a, b) => a - b);
+  const nnMedian = nn[Math.floor(nn.length / 2)] || 1;
+  const limit = nnMedian * bridgeFactor;
 
   const triangles: number[] = [];
   let droppedTriangles = 0;

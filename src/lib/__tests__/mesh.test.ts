@@ -42,14 +42,15 @@ describe('triangulate (Delaunay + filtro de pontes)', () => {
 
   it('dois aglomerados distantes: nenhuma aresta-ponte sobrevive ao filtro', () => {
     const pts: Array<readonly [number, number]> = [];
-    for (let i = 0; i < 4; i++) pts.push([i * 10, i * 3]); // cluster A
-    for (let i = 0; i < 4; i++) pts.push([100000 + i * 10, 100000 + i * 3]); // cluster B
+    // aglomerados 2×2 (não colineares) separados por ~140 km
+    for (const [dx, dy] of [[0, 0], [10, 0], [0, 10], [10, 10]] as const) pts.push([dx, dy]);
+    for (const [dx, dy] of [[0, 0], [10, 0], [0, 10], [10, 10]] as const) pts.push([100000 + dx, 100000 + dy]);
     const r = triangulate(pts);
     expect(r.triangles.length).toBeGreaterThan(0);
     expect(r.droppedTriangles).toBeGreaterThan(0);
     // todas as arestas remanescentes são locais (nenhuma atravessa os 140 km)
     const maxEdge = Math.max(...edgeLengths(pts, r.triangles));
-    expect(maxEdge).toBeLessThan(1000);
+    expect(maxEdge).toBeLessThan(100);
   });
 
   it('menos de 3 pontos → vazio', () => {
