@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, Globe2, Info, Mountain, MoveHorizontal, Ruler } from 'lucide-react';
+import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Ruler } from 'lucide-react';
+import { getPontoDec, summarizeHgeoResult } from '../lib/api';
 import {
   DATUMS,
   DatumId,
@@ -206,6 +207,10 @@ function AltimetrySection() {
   const [hOrtoText, setHOrtoText] = useState(''); // ortométrica
   const [NText, setNText] = useState(''); // ondulação geoidal
 
+  const [lookupLat, setLookupLat] = useState('-23.5505');
+  const [lookupLon, setLookupLon] = useState('-46.6333');
+  const [lookup, setLookup] = useState<{ loading: boolean; error?: string; modelo?: string; incerteza?: number | null }>({ loading: false });
+
   const h = parseNum(hText);
   const H = parseNum(hOrtoText);
   const N = parseNum(NText);
@@ -215,6 +220,24 @@ function AltimetrySection() {
   const Hshown = H ?? Hcalc;
   const hShown = h ?? hCalc;
 
+  const consultarN = async () => {
+    setLookup({ loading: true });
+    try {
+      const lat = parseDmsString(lookupLat);
+      const lon = parseDmsString(lookupLon);
+      const res = await getPontoDec(lat, lon);
+      const s = summarizeHgeoResult(res);
+      if (s.N === null) {
+        setLookup({ loading: false, error: 'Ponto fora da grade do modelo geoidal hgeoHNOR.' });
+        return;
+      }
+      setNText(String(s.N));
+      setLookup({ loading: false, modelo: s.modelo, incerteza: s.incerteza });
+    } catch {
+      setLookup({ loading: false, error: 'Falha ao consultar o IBGE — verifique sua conexão.' });
+    }
+  };
+
   return (
     <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
       <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
@@ -223,6 +246,7 @@ function AltimetrySection() {
       </h3>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
         Informe dois valores e o terceiro é calculado: H = h − N. No Brasil N é negativo (geóide abaixo do elipsoide).
+        Não tem N? Consulte o modelo geoidal oficial do IBGE para o ponto.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
@@ -237,6 +261,39 @@ function AltimetrySection() {
           <label className={labelClass} htmlFor="conv-H">Altitude ortométrica (H)</label>
           <input id="conv-H" type="text" value={hOrtoText} onChange={e => setHOrtoText(e.target.value)} className={inputClass} placeholder="ex.: 869.579" />
         </div>
+      </div>
+
+      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+        <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-3">
+          Consultar N no modelo geoidal (IBGE · hgeoHNOR)
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+          <div>
+            <label className={labelClass} htmlFor="conv-geo-lat">Latitude do ponto</label>
+            <input id="conv-geo-lat" type="text" value={lookupLat} onChange={e => setLookupLat(e.target.value)} className={inputClass} placeholder="-23.5505" />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="conv-geo-lon">Longitude do ponto</label>
+            <input id="conv-geo-lon" type="text" value={lookupLon} onChange={e => setLookupLon(e.target.value)} className={inputClass} placeholder="-46.6333" />
+          </div>
+          <button
+            type="button"
+            onClick={consultarN}
+            disabled={lookup.loading}
+            className="px-4 py-2 bg-ibge-blue hover:bg-ibge-blue/90 text-white font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            {lookup.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Info className="w-4 h-4" />}
+            Buscar N
+          </button>
+        </div>
+        {lookup.error && <ErrorNote message={lookup.error} />}
+        {lookup.modelo && (
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            N preenchido acima · Modelo: <span className="font-mono font-semibold">{lookup.modelo}</span>
+            {lookup.incerteza !== null && lookup.incerteza !== undefined && <> · Incerteza: ±{lookup.incerteza.toFixed(2)} m</>}
+            {' '}· H referida ao RN2015 (Imbituba), realização REALT-2018.
+          </p>
+        )}
       </div>
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">

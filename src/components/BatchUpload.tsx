@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, FileText, Loader2, Download } from 'lucide-react';
 import Papa from 'papaparse';
-import { getPontoDec, HgeoResult } from '../lib/api';
+import { getPontosBatch, HgeoResult } from '../lib/api';
 import { isValidCoordinate } from '../lib/validation';
 import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
 import { reverseGeocode } from '../lib/geocoding';
@@ -15,7 +15,8 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState({ lat: '', lon: '', h: '' });
   const [parsedData, setParsedData] = useState<any[]>([]);
-  const [stats, setStats] = useState({ valid: 0, ignored: 0 });
+  const [stats, setStats] = useState({ valid: 0, ignored: 0, failed: 0 });
+  const [seekAddresses, setSeekAddresses] = useState(false);
   const [step, setStep] = useState<'upload' | 'mapping' | 'processing'>('upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,7 +84,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     setStep('processing');
     setLoading(true);
     setProgress(0);
-    setStats({ valid: 0, ignored: 0 });
+    setStats({ valid: 0, ignored: 0, failed: 0 });
 
     const validPoints: {lat: number, lon: number, h?: number}[] = [];
     let ignoredCount = 0;
@@ -107,7 +108,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
       }
     }
 
-    setStats({ valid: validPoints.length, ignored: ignoredCount });
+    setStats({ valid: validPoints.length, ignored: ignoredCount, failed: 0 });
 
     if (validPoints.length === 0) {
       setError(`Nenhum ponto válido na área de cobertura do Brasil. ${ignoredCount > 0 ? `(${ignoredCount} pontos ignorados)` : ''}`);
@@ -118,40 +119,56 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
 
     const processedResults: HgeoResult[] = [];
     let completed = 0;
+    let failed = 0;
 
-    const chunkSize = 5; // Reduced chunk size for geocoding stability
-    for (let i = 0; i < validPoints.length; i += chunkSize) {
-      const chunk = validPoints.slice(i, i + chunkSize);
-      
-      const chunkPromises = chunk.map(async (point, idx) => {
-        try {
-          // Add artificial delay per point in chunk to respect Nominatim rate limit (1req/s)
-          await new Promise(resolve => setTimeout(resolve, idx * 1000));
-          
-          const res = await getPontoDec(point.lat, point.lon);
-
-          const addr = await reverseGeocode(point.lat, point.lon);
-          if (addr) res.address = addr.displayName;
-
+    // Modelo geoidal em lote: uma única chamada ao /pontos do IBGE por ~200 pontos
+    // (o ponto-a-ponto com intervalo de 1 s inviabilizava arquivos grandes)
+    const BATCH_SIZE = 200;
+    for (let i = 0; i < validPoints.length; i += BATCH_SIZE) {
+      const chunk = validPoints.slice(i, i + BATCH_SIZE);
+      try {
+        const batch = await getPontosBatch(chunk.map(p => ({ lat: p.lat, lon: p.lon })));
+        const count = Math.min(batch.length, chunk.length);
+        for (let j = 0; j < count; j++) {
+          const res = batch[j];
+          const point = chunk[j];
+          if (parseFatorConversao(res.fator_conversao) === null) {
+            failed++; // "fora_grid": ponto fora da grade do modelo geoidal
+            continue;
+          }
           if (point.h !== undefined) {
             res.h = point.h;
             const N = parseFatorConversao(res.fator_conversao);
             if (N !== null) res.H = orthometricHeight(point.h, N);
           }
-          return res;
-        } catch (err) {
-          console.error('Error processing point:', point, err);
-          return null;
+          processedResults.push(res);
         }
-      });
+      } catch (err) {
+        console.error('Erro na consulta em lote ao IBGE:', err);
+        failed += chunk.length;
+      }
 
-      const chunkResults = await Promise.all(chunkPromises);
-      processedResults.push(...chunkResults.filter(Boolean) as HgeoResult[]);
-      
       completed += chunk.length;
       setProgress(Math.round((completed / validPoints.length) * 100));
+      if (i + BATCH_SIZE < validPoints.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
+    // Endereços (Nominatim) são opcionais: ~1 req/s, limitado aos 100 primeiros
+    if (seekAddresses) {
+      const limit = Math.min(processedResults.length, 100);
+      for (let i = 0; i < limit; i++) {
+        const res = processedResults[i];
+        const addr = await reverseGeocode(parseFloat(res.lat), parseFloat(res.long));
+        if (addr) res.address = addr.displayName;
+      }
+    }
+
+    setStats(s => ({ ...s, failed }));
+    if (processedResults.length === 0) {
+      setError('Nenhum ponto retornou ondulação geoidal (fora da grade do modelo hgeoHNOR ou erro na consulta).');
+    }
     onBatchResult(processedResults);
     setLoading(false);
   };
@@ -272,6 +289,19 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
             <p className="text-xs text-slate-500 dark:text-slate-400 italic">
               * Identificamos {parsedData.length} linhas prontas para conversão.
             </p>
+
+            <label className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={seekAddresses}
+                onChange={e => setSeekAddresses(e.target.checked)}
+                className="mt-0.5 accent-ibge-blue"
+              />
+              <span>
+                Buscar endereços aproximados (Nominatim/OSM). Opcional e lento (~1 ponto/s, até 100 pontos) — a
+                ondulação geoidal N não depende disso.
+              </span>
+            </label>
           </div>
         )}
 
@@ -293,6 +323,11 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
             {stats.ignored > 0 && (
               <p className="text-xs text-ibge-blue dark:text-ibge-light-blue mt-3 font-medium">
                 * {stats.ignored} pontos ignorados (fora do Brasil)
+              </p>
+            )}
+            {stats.failed > 0 && (
+              <p className="text-xs text-ibge-gold mt-3 font-medium">
+                * {stats.failed} pontos sem resultado (fora da grade do modelo geoidal ou erro na consulta)
               </p>
             )}
           </div>
