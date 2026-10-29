@@ -324,6 +324,39 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                 ondulação geoidal N não depende disso.
               </span>
             </label>
+
+            <div>
+              <p className="text-xs font-bold text-ibge-blue dark:text-ibge-light-blue uppercase tracking-wider mb-2">
+                Prévia dos dados ({parsedData.length} linhas)
+              </p>
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300">
+                    <tr>
+                      {headers.map(h => (
+                        <th key={h} className="px-2 py-1.5 text-left font-semibold whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                    {parsedData.slice(0, 5).map((row, i) => (
+                      <tr key={i}>
+                        {headers.map(h => (
+                          <td key={h} className="px-2 py-1 text-slate-600 dark:text-slate-300 whitespace-nowrap max-w-[200px] truncate">
+                            {String(row[h] ?? '')}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {parsedData.length > 5 && (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  … mais {parsedData.length - 5} linhas (prévia dos 5 primeiros)
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -374,7 +407,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
         
         <button
           onClick={step === 'upload' ? parseFile : processFile}
-          disabled={!file || loading}
+          disabled={loading || (step === 'upload' && !file) || (step === 'mapping' && parsedData.length === 0)}
           className="flex-[2] bg-ibge-blue hover:bg-ibge-blue/90 dark:bg-ibge-blue dark:hover:bg-ibge-blue/80 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {loading ? (
