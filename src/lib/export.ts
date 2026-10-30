@@ -78,17 +78,16 @@ export function exportDXF(points: HgeoResult[], options?: { withLabels?: boolean
         : point.h !== undefined && N !== null
           ? orthometricHeight(point.h, N)
           : (point.h ?? 0);
-    return { ...utm, z, name: point.descricao || `P${index + 1}` };
+    return { ...utm, z, name: `P${index + 1}` };
   });
 
   let dxf = `999\nGeoAlt - UTM fuso ${zone} (datum SIRGAS2000/WGS84) - Z ortometrica (H) quando disponivel\n`;
   dxf += `  0\nSECTION\n  2\nENTITIES\n`;
 
-  projected.forEach((p, i) => {
-    const label = p.name.startsWith('P') ? p.name : `P${i + 1}`;
+  projected.forEach((p) => {
     dxf += `  0\nPOINT\n  8\nGEOALT_PONTOS\n 10\n${p.easting.toFixed(3)}\n 20\n${p.northing.toFixed(3)}\n 30\n${p.z.toFixed(3)}\n`;
     if (withLabels) {
-      dxf += `  0\nTEXT\n  8\nGEOALT_ROTULOS\n 10\n${(p.easting + 3).toFixed(3)}\n 20\n${p.northing.toFixed(3)}\n 30\n0\n 40\n1.5\n  1\n${label}\n`;
+      dxf += `  0\nTEXT\n  8\nGEOALT_ROTULOS\n 10\n${(p.easting + 3).toFixed(3)}\n 20\n${p.northing.toFixed(3)}\n 30\n0\n 40\n1.5\n  1\n${p.name}\n`;
     }
   });
 
