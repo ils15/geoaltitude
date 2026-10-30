@@ -59,7 +59,8 @@ export function exportKML(points: HgeoResult[]) {
  * emenda de fuso dentro do mesmo desenho. Z = H (ortométrica) quando
  * disponível; caso contrário h − N, ou h.
  */
-export function exportDXF(points: HgeoResult[]) {
+export function exportDXF(points: HgeoResult[], options?: { withLabels?: boolean; withRoute?: boolean }) {
+  const { withLabels = true, withRoute = true } = options ?? {};
   const parsed = points
     .map((p) => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long), point: p }))
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
@@ -68,9 +69,7 @@ export function exportDXF(points: HgeoResult[]) {
   const centerLon = parsed.reduce((acc, p) => acc + p.lon, 0) / parsed.length;
   const zone = lonToUtmZone(centerLon);
 
-  let dxf = `999\nGeoAlt - UTM fuso ${zone} (datum SIRGAS2000/WGS84) - Z ortometrica (H) quando disponivel\n`;
-  dxf += `  0\nSECTION\n  2\nENTITIES\n`;
-  parsed.forEach(({ lat, lon, point }) => {
+  const projected = parsed.map(({ lat, lon, point }, index) => {
     const utm = geographicToUTM(lat, lon);
     const N = parseFatorConversao(point.fator_conversao);
     const z =
@@ -79,8 +78,27 @@ export function exportDXF(points: HgeoResult[]) {
         : point.h !== undefined && N !== null
           ? orthometricHeight(point.h, N)
           : (point.h ?? 0);
-    dxf += `  0\nPOINT\n  8\nGEOALT_PONTOS\n 10\n${utm.easting.toFixed(3)}\n 20\n${utm.northing.toFixed(3)}\n 30\n${z.toFixed(3)}\n`;
+    return { ...utm, z, name: point.descricao || `P${index + 1}` };
   });
+
+  let dxf = `999\nGeoAlt - UTM fuso ${zone} (datum SIRGAS2000/WGS84) - Z ortometrica (H) quando disponivel\n`;
+  dxf += `  0\nSECTION\n  2\nENTITIES\n`;
+
+  projected.forEach((p, i) => {
+    const label = p.name.startsWith('P') ? p.name : `P${i + 1}`;
+    dxf += `  0\nPOINT\n  8\nGEOALT_PONTOS\n 10\n${p.easting.toFixed(3)}\n 20\n${p.northing.toFixed(3)}\n 30\n${p.z.toFixed(3)}\n`;
+    if (withLabels) {
+      dxf += `  0\nTEXT\n  8\nGEOALT_ROTULOS\n 10\n${(p.easting + 3).toFixed(3)}\n 20\n${p.northing.toFixed(3)}\n 30\n0\n 40\n1.5\n  1\n${label}\n`;
+    }
+  });
+
+  if (withRoute && projected.length > 1) {
+    dxf += `  0\nLWPOLYLINE\n  8\nGEOALT_ROTA\n  6\nDASHED\n 90\n${projected.length}\n 70\n0\n`;
+    for (const p of projected) {
+      dxf += ` 10\n${p.easting.toFixed(3)}\n 20\n${p.northing.toFixed(3)}\n`;
+    }
+  }
+
   dxf += `  0\nENDSEC\n  0\nEOF\n`;
   downloadText(dxf, `geoalt_export_utm${zone}.dxf`, 'application/dxf');
 }
