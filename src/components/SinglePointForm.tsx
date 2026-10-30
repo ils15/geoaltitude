@@ -257,6 +257,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={glat}
                   onChange={(e) => setGlat(e.target.value)}
                   placeholder="Graus"
+                  aria-label="Latitude: graus"
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
@@ -264,6 +265,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={mlat}
                   onChange={(e) => setMlat(e.target.value)}
                   placeholder="Minutos"
+                  aria-label="Latitude: minutos"
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
@@ -272,6 +274,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={slat}
                   onChange={(e) => setSlat(e.target.value)}
                   placeholder="Segundos"
+                  aria-label="Latitude: segundos"
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
               </div>
@@ -284,6 +287,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={glon}
                   onChange={(e) => setGlon(e.target.value)}
                   placeholder="Graus"
+                  aria-label="Longitude: graus"
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
@@ -291,6 +295,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={mlon}
                   onChange={(e) => setMlon(e.target.value)}
                   placeholder="Minutos"
+                  aria-label="Longitude: minutos"
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
                 <input
@@ -299,6 +304,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                   value={slon}
                   onChange={(e) => setSlon(e.target.value)}
                   placeholder="Segundos"
+                  aria-label="Longitude: segundos"
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
                 />
               </div>
