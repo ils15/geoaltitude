@@ -90,7 +90,9 @@ test('ponto único via busca de endereço preenche GMS e limpa erros', async ({ 
   await page.getByRole('button', { name: /Praça da Sé, Sé, São Paulo/ }).first().click();
 
   await expect(page.getByLabel('Latitude: graus')).toHaveValue('-23');
-  await expect(page.getByLabel('Latitude: minutos')).toHaveValue('34');
+  await expect(page.getByLabel('Latitude: minutos')).toHaveValue('33');
+  await expect(page.getByLabel('Latitude: segundos')).toHaveValue('1.80');
   await expect(page.getByLabel('Longitude: graus')).toHaveValue('-46');
+  await expect(page.getByLabel('Longitude: minutos')).toHaveValue('37');
   await expect(page.getByRole('button', { name: 'Calcular Altitude' })).toBeEnabled();
 });
