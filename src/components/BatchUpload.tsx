@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { ClipboardPaste, Sparkles, UploadCloud, FileText, Loader2, Download, X } from 'lucide-react';
+import { ClipboardPaste, Sparkles, UploadCloud, FileText, Loader2, Download, X, FileWarning } from 'lucide-react';
 import Papa from 'papaparse';
 import { getPontosBatch, HgeoResult } from '../lib/api';
 import { isValidCoordinate } from '../lib/validation';
 import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
 import { reverseGeocode } from '../lib/geocoding';
+import { fetchTerrainElevationBatch } from '../lib/openServices';
 import { downloadText } from '../lib/export';
 import { DEMO_ROWS } from '../lib/demoData';
 import { parsePastedCoordinates, pasteRowsToDataRows } from '../lib/pasteParser';
@@ -21,6 +22,9 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
   const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
   const [stats, setStats] = useState({ valid: 0, ignored: 0, failed: 0 });
   const [seekAddresses, setSeekAddresses] = useState(false);
+  const [seekDem, setSeekDem] = useState(false);
+  const [failures, setFailures] = useState<Array<{ lat: string; lon: string; motivo: string }>>([]);
+  const abortRef = useRef<AbortController | null>(null);
   const [step, setStep] = useState<'upload' | 'mapping' | 'processing'>('upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -157,7 +161,11 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     setProgress(0);
     setStats({ valid: 0, ignored: 0, failed: 0 });
 
-    const validPoints: { lat: number; lon: number; h?: number }[] = [];
+    const abort = new AbortController();
+    abortRef.current = abort;
+    const collectedFailures: Array<{ lat: string; lon: string; motivo: string }> = [];
+
+    const validPoints: { lat: number; lon: number; h?: number; hEstimada?: boolean }[] = [];
     let ignoredCount = 0;
 
     for (const row of parsedData) {
@@ -175,11 +183,19 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           validPoints.push({ lat, lon, h });
         } else {
           ignoredCount++;
+          collectedFailures.push({ lat: String(lat), lon: String(lon), motivo: 'Fora da área do Brasil (bbox)' });
         }
+      } else {
+        collectedFailures.push({
+          lat: String(row[mapping.lat] ?? ''),
+          lon: String(row[mapping.lon] ?? ''),
+          motivo: 'Coordenada não numérica',
+        });
       }
     }
 
     setStats({ valid: validPoints.length, ignored: ignoredCount, failed: 0 });
+    setFailures(collectedFailures);
 
     if (validPoints.length === 0) {
       setError(
@@ -196,8 +212,31 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
 
     // Modelo geoidal em lote: uma única chamada ao /pontos do IBGE por ~200 pontos
     // (o ponto-a-ponto com intervalo de 1 s inviabilizava arquivos grandes)
+    // Sem coluna h: estimar altitudes com o DEM aberto (Copernicus GLO-90),
+    // marcadas como estimadas (precisão ≈ ±10 m em relevo acidentado)
+    if (seekDem && validPoints.some((p) => p.h === undefined)) {
+      const demValues = await fetchTerrainElevationBatch(validPoints.map((p) => ({ lat: p.lat, lon: p.lon })));
+      let demOk = 0;
+      validPoints.forEach((p, idx) => {
+        const v = demValues[idx];
+        if (v !== null && p.h === undefined) {
+          p.h = v;
+          p.hEstimada = true;
+          demOk++;
+        }
+      });
+      if (demOk < validPoints.length) {
+        collectedFailures.push({
+          lat: '-',
+          lon: '-',
+          motivo: `${validPoints.length - demOk} altitudes não obtidas do DEM (ficarão sem h)`,
+        });
+      }
+    }
+
     const BATCH_SIZE = 200;
     for (let i = 0; i < validPoints.length; i += BATCH_SIZE) {
+      if (abort.signal.aborted) break;
       const chunk = validPoints.slice(i, i + BATCH_SIZE);
       try {
         const batch = await getPontosBatch(chunk.map((p) => ({ lat: p.lat, lon: p.lon })));
@@ -207,10 +246,12 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           const point = chunk[j];
           if (parseFatorConversao(res.fator_conversao) === null) {
             failed++; // "fora_grid": ponto fora da grade do modelo geoidal
+            collectedFailures.push({ lat: res.lat, lon: res.long, motivo: 'Fora da grade do modelo geoidal hgeoHNOR' });
             continue;
           }
           if (point.h !== undefined) {
             res.h = point.h;
+            res.h_estimada = point.hEstimada === true ? 'DEM' : undefined;
             const N = parseFatorConversao(res.fator_conversao);
             if (N !== null) res.H = orthometricHeight(point.h, N);
           }
@@ -219,6 +260,9 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
       } catch (err) {
         console.error('Erro na consulta em lote ao IBGE:', err);
         failed += chunk.length;
+        for (const p of chunk) {
+          collectedFailures.push({ lat: String(p.lat), lon: String(p.lon), motivo: 'Erro na consulta ao IBGE' });
+        }
       }
 
       completed += chunk.length;
@@ -227,6 +271,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
+    abortRef.current = null;
 
     // Endereços (Nominatim) são opcionais: ~1 req/s, limitado aos 100 primeiros
     if (seekAddresses) {
@@ -239,11 +284,18 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     }
 
     setStats((s) => ({ ...s, failed }));
+    setFailures(collectedFailures);
     if (processedResults.length === 0) {
       setError('Nenhum ponto retornou ondulação geoidal (fora da grade do modelo hgeoHNOR ou erro na consulta).');
     }
     onBatchResult(processedResults);
     setLoading(false);
+  };
+
+  const exportFailures = () => {
+    if (failures.length === 0) return;
+    const csv = ['lat,lon,motivo', ...failures.map((f) => `"${f.lat}","${f.lon}","${f.motivo}"`)].join('\n');
+    downloadText(csv, 'geoalt_falhas.csv', 'text/csv;charset=utf-8;');
   };
 
   const downloadTemplate = () => {
@@ -291,6 +343,16 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Processamento em Lote</h2>
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
+          {failures.length > 0 && (
+            <button
+              onClick={exportFailures}
+              className="text-sm text-ibge-gold hover:text-ibge-gold/80 font-bold flex items-center gap-1 transition-colors"
+              title="Baixar CSV com os pontos não processados e o motivo"
+            >
+              <FileWarning className="w-4 h-4" />
+              Falhas ({failures.length})
+            </button>
+          )}
           <button
             onClick={() => setPasteOpen(true)}
             className="text-sm text-ibge-blue dark:text-ibge-light-blue hover:text-ibge-blue/80 font-bold flex items-center gap-1 transition-colors"
@@ -324,7 +386,13 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                 : 'border-slate-300 dark:border-slate-700 hover:border-ibge-blue/50 dark:hover:border-ibge-blue/50 bg-slate-50 dark:bg-slate-800/50'
             }`}
           >
-            <input type="file" accept=".csv,.txt,.xlsx,.xls,.geojson,.json,.kml,.xml" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+            <input
+              type="file"
+              accept=".csv,.txt,.xlsx,.xls,.geojson,.json,.kml,.xml"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+            />
 
             {file ? (
               <div className="flex flex-col items-center gap-3">
@@ -349,7 +417,9 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                   <p className="text-sm font-medium text-slate-900 dark:text-white">
                     Clique para selecionar ou arraste o arquivo
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">CSV/TXT, XLSX, GeoJSON ou KML — ou cole coordenadas de texto livre</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    CSV/TXT, XLSX, GeoJSON ou KML — ou cole coordenadas de texto livre
+                  </p>
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -437,6 +507,22 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
               </span>
             </label>
 
+            {!mapping.h && (
+              <label className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={seekDem}
+                  onChange={(e) => setSeekDem(e.target.checked)}
+                  className="mt-0.5 accent-ibge-green"
+                />
+                <span>
+                  <strong className="text-ibge-green">Sem coluna de altitude?</strong> Estimar h com o DEM aberto
+                  (Copernicus GLO-90 via Open-Meteo, ~100 pontos/chamada). Precisão ≈ ±10 m em relevo acidentado; os
+                  pontos ficarão marcados como &quot;h estimada (DEM)&quot;.
+                </span>
+              </label>
+            )}
+
             <div>
               <p className="text-xs font-bold text-ibge-blue dark:text-ibge-light-blue uppercase tracking-wider mb-2">
                 Prévia dos dados ({parsedData.length} linhas)
@@ -502,33 +588,48 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                 * {stats.failed} pontos sem resultado (fora da grade do modelo geoidal ou erro na consulta)
               </p>
             )}
+            <button
+              type="button"
+              onClick={() => abortRef.current?.abort()}
+              className="mt-3 text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
+            >
+              Cancelar processamento
+            </button>
           </div>
         )}
       </div>
 
       {pasteOpen && (
-        <div className="fixed inset-0 z-[1200] bg-slate-900/50 flex items-center justify-center p-4" onClick={() => setPasteOpen(false)}>
+        <div
+          className="fixed inset-0 z-[1200] bg-slate-900/50 flex items-center justify-center p-4"
+          onClick={() => setPasteOpen(false)}
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Colar coordenadas"
             className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-5"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">Colar coordenadas</h3>
-              <button type="button" onClick={() => setPasteOpen(false)} aria-label="Fechar" className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white">
+              <button
+                type="button"
+                onClick={() => setPasteOpen(false)}
+                aria-label="Fechar"
+                className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-              Uma coordenada por linha: <span className="font-mono">lat, lon[, h]</span> — decimais (ponto ou vírgula) ou
-              GMS (<span className="font-mono">22°54&apos;28,9&quot; S</span>). Separe por vírgula, ponto-e-vírgula ou
-              tabulação (colar do Excel funciona).
+              Uma coordenada por linha: <span className="font-mono">lat, lon[, h]</span> — decimais (ponto ou vírgula)
+              ou GMS (<span className="font-mono">22°54&apos;28,9&quot; S</span>). Separe por vírgula, ponto-e-vírgula
+              ou tabulação (colar do Excel funciona).
             </p>
             <textarea
               value={pasteText}
-              onChange={e => setPasteText(e.target.value)}
+              onChange={(e) => setPasteText(e.target.value)}
               rows={9}
               autoFocus
               placeholder={'-23.5505, -46.6333, 760\n-22°54\'28,9" S; 43°10\'22,4" W\n-15.7939\t-47.8828\t1170'}

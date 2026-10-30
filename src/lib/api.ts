@@ -11,6 +11,8 @@ export interface HgeoResult {
   address?: string; // Endereço aproximado
   N_egm96?: number; // Ondulação do modelo global EGM96 (comparação offline)
   H_egm96?: number; // Altitude ortométrica segundo o EGM96
+  /** 'DEM' quando h veio do Copernicus GLO-90 (estimada, não medida) */
+  h_estimada?: string;
 }
 
 export interface LatLonInput {
