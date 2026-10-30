@@ -8,6 +8,8 @@ import { reverseGeocode } from '../lib/geocoding';
 import { downloadText } from '../lib/export';
 import { DEMO_ROWS } from '../lib/demoData';
 import { parsePastedCoordinates, pasteRowsToDataRows } from '../lib/pasteParser';
+import { errorMessage } from '../lib/errors';
+import { parseGeoJson, parseKml, parseXlsx } from '../lib/geoImport';
 
 export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoResult[]) => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -34,10 +36,38 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     }
   };
 
-  const parseFile = () => {
+  const parseFile = async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
+
+    const name = file.name.toLowerCase();
+    try {
+      // XLSX / GeoJSON / KML entram pelo mesmo fluxo de mapeamento do CSV
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        const result = await parseXlsx(file);
+        applyImportedRows(
+          result,
+          ['lat', 'latitude', 'y'],
+          ['lon', 'long', 'longitude', 'lng', 'x'],
+          ['h', 'alt', 'altitude', 'elev', 'elevacao', 'z', 'altitude_elipsoidal']
+        );
+        return;
+      }
+      if (name.endsWith('.geojson') || name.endsWith('.json')) {
+        const data: unknown = JSON.parse(await file.text());
+        applyImportedRows(parseGeoJson(data, file.name), ['latitude'], ['longitude'], ['altitude_elipsoidal']);
+        return;
+      }
+      if (name.endsWith('.kml') || name.endsWith('.xml')) {
+        applyImportedRows(parseKml(await file.text(), file.name), ['latitude'], ['longitude'], ['altitude_elipsoidal']);
+        return;
+      }
+    } catch (err) {
+      setError(`Erro ao ler arquivo: ${errorMessage(err)}`);
+      setLoading(false);
+      return;
+    }
 
     Papa.parse(file, {
       header: true,
@@ -88,6 +118,32 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
         setLoading(false);
       },
     });
+  };
+
+  /** Entra com as linhas de um importador (XLSX/GeoJSON/KML) no fluxo de mapeamento. */
+  const applyImportedRows = (
+    result: { rows: Record<string, string>[]; warnings: string[]; source: string },
+    latAliases: string[],
+    lonAliases: string[],
+    hAliases: string[]
+  ) => {
+    if (result.rows.length === 0) {
+      setError(`${result.source}: nenhum ponto importado. ${result.warnings.join(' ')}`);
+      setLoading(false);
+      return;
+    }
+    const keys = Object.keys(result.rows[0]);
+    setHeaders(keys);
+    setParsedData(result.rows);
+    const lower = keys.map((f) => f.toLowerCase().trim());
+    const pick = (aliases: string[]) => {
+      const idx = lower.findIndex((f) => aliases.includes(f));
+      return idx !== -1 ? keys[idx] : '';
+    };
+    setMapping({ lat: pick(latAliases), lon: pick(lonAliases), h: pick(hAliases) });
+    if (result.warnings.length > 0) setError(result.warnings.join(' '));
+    setStep('mapping');
+    setLoading(false);
   };
 
   const processFile = async () => {
@@ -268,7 +324,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                 : 'border-slate-300 dark:border-slate-700 hover:border-ibge-blue/50 dark:hover:border-ibge-blue/50 bg-slate-50 dark:bg-slate-800/50'
             }`}
           >
-            <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+            <input type="file" accept=".csv,.txt,.xlsx,.xls,.geojson,.json,.kml,.xml" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
 
             {file ? (
               <div className="flex flex-col items-center gap-3">
@@ -293,7 +349,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                   <p className="text-sm font-medium text-slate-900 dark:text-white">
                     Clique para selecionar ou arraste o arquivo
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Apenas arquivos CSV ou TXT</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">CSV/TXT, XLSX, GeoJSON ou KML — ou cole coordenadas de texto livre</p>
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -524,7 +580,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
         )}
 
         <button
-          onClick={step === 'upload' ? parseFile : processFile}
+          onClick={() => void (step === 'upload' ? parseFile() : processFile())}
           disabled={loading || (step === 'upload' && !file) || (step === 'mapping' && parsedData.length === 0)}
           className="flex-[2] bg-ibge-blue hover:bg-ibge-blue/90 dark:bg-ibge-blue dark:hover:bg-ibge-blue/80 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >

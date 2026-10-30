@@ -19,8 +19,6 @@ export interface PasteResult {
   invalid: number;
 }
 
-const FIELD_SPLIT = /\t+|;/;
-
 /**
  * Divide a linha em campos resolvendo a ambiguidade da vírgula no Brasil
  * (decimal vs separador):
