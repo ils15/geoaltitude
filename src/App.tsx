@@ -9,10 +9,10 @@ import { MapPreview } from './components/MapPreview';
 import { useHistory } from './hooks/useHistory';
 import { useTheme } from './hooks/useTheme';
 import { ThemeToggle } from './components/ThemeToggle';
+import { Logo } from './components/Logo';
 import { HgeoResult } from './lib/api';
 import { readShareHash } from './lib/project';
 import {
-  Compass,
   Globe2,
   UploadCloud,
   Calculator,
@@ -107,17 +107,24 @@ export default function App() {
       <Toaster position="top-right" />
       <header className="sticky top-0 z-50 transition-colors duration-200 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b border-white/20 dark:border-slate-800/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-ibge-blue to-ibge-light-blue p-2 rounded-xl shadow-md shadow-ibge-blue/20">
-              <Compass className="w-5 h-5 text-white" />
+          <a
+            href="#/lote"
+            onClick={() => setActiveTab('upload')}
+            className="flex items-center gap-3 group"
+            aria-label="OpenGeoaltitude — início"
+          >
+            <div className="transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105">
+              <Logo size={38} />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">GeoAlt</h1>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:block">
-                Conversão de Altitude hgeoHNOR
+              <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">
+                Open<span className="text-ibge-blue dark:text-ibge-light-blue">Geoaltitude</span>
+              </h1>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hidden sm:block mt-0.5">
+                altitudes com o geóide oficial · modelos globais · offline
               </p>
             </div>
-          </div>
+          </a>
 
           <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-2xl transition-colors duration-200 border border-slate-200/50 dark:border-slate-700/50 shadow-inner">
             <TabButton
@@ -384,32 +391,83 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/60 backdrop-blur mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <p>
-            GeoAlt · conversão de altitudes com o modelo geoidal{' '}
-            <a
-              href="https://servicodados.ibge.gov.br/api/docs/hgeohnor?versao=1"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-ibge-blue dark:text-ibge-light-blue hover:underline font-medium"
-            >
-              hgeoHNOR (IBGE)
-            </a>{' '}
-            · mapas © OpenStreetMap
-          </p>
-          <p className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-ibge-green animate-pulse" aria-hidden="true" />
-            núcleo geodésico validado por 554 testes ·{' '}
-            <a
-              href="https://github.com/ils15/geoaltitude"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-ibge-blue dark:text-ibge-light-blue hover:underline font-medium"
-            >
-              código aberto
-            </a>
-          </p>
+      <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/70 dark:bg-slate-900/70 backdrop-blur mt-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <Logo size={30} />
+              <p className="font-extrabold text-slate-900 dark:text-white">
+                Open<span className="text-ibge-blue dark:text-ibge-light-blue">Geoaltitude</span>
+              </p>
+            </div>
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 max-w-xs">
+              Conversão de altitudes geométricas (h) em ortométricas (H) com o geóide oficial do IBGE e modelos
+              globais abertos — processado integralmente no seu navegador, sem armazenar nada.
+            </p>
+            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+              <span className="inline-block w-2 h-2 rounded-full bg-ibge-green animate-pulse" aria-hidden="true" />
+              núcleo geodésico validado por 602 testes contra o PROJ
+            </p>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">
+              Fontes de dados
+            </p>
+            <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+              <li>
+                <a href="https://servicodados.ibge.gov.br/api/docs/hgeohnor?versao=1" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  Geóide hgeoHNOR / MAPGEO2015 · API IBGE ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://earth-info.nga.mil/" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  EGM96 e EGM2008 · NGA (avaliados localmente) ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  Terreno: Copernicus DEM GLO-90 via Open-Meteo ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  Mapas e endereços © OpenStreetMap ↗
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">
+              Projeto
+            </p>
+            <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+              <li>
+                <a href="https://github.com/ils15/geoaltitude" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  Código aberto (GitHub) ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/ils15/geoaltitude/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  Roadmap de evolução ↗
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/ils15/geoaltitude/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-ibge-blue dark:hover:text-ibge-light-blue transition-colors">
+                  Licença Apache 2.0 ↗
+                </a>
+              </li>
+              <li className="pt-1">Integrado a: <span className="font-medium text-slate-600 dark:text-slate-300">IBGE · OSM · Copernicus · NGA</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/60 dark:border-slate-800/60">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+            <p>© {new Date().getFullYear()} OpenGeoaltitude · Apache-2.0 · zero retenção de dados</p>
+            <p className="font-mono">H = h − N</p>
+          </div>
         </div>
       </footer>
     </div>

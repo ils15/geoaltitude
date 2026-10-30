@@ -19,7 +19,7 @@ export function Explanation() {
           </div>
 
           <p className="text-slate-600 dark:text-slate-300 mb-10 leading-relaxed text-xl max-w-3xl">
-            O GeoAlt utiliza o modelo <strong className="text-ibge-blue dark:text-ibge-light-blue">hgeoHNOR2020</strong>
+            O OpenGeoaltitude utiliza o modelo <strong className="text-ibge-blue dark:text-ibge-light-blue">hgeoHNOR2020</strong>
             , o padrão oficial do Sistema Geodésico Brasileiro (SGB). Esta tecnologia permite a determinação da altitude
             física (Ortométrica) a partir de coordenadas espaciais.
           </p>
@@ -60,7 +60,7 @@ export function Explanation() {
             </span>
             <div className="text-5xl md:text-7xl font-mono font-black text-white mb-6 tracking-tighter">H = h - N</div>
             <p className="text-slate-400 text-sm max-w-md">
-              A conversão subtrai a <strong>Ondulação Geoidal (N)</strong> da leitura bruta do GPS. O GeoAlt automatiza
+              A conversão subtrai a <strong>Ondulação Geoidal (N)</strong> da leitura bruta do GPS. O OpenGeoaltitude automatiza
               este cálculo consultando as grades de alta resolução do IBGE.
             </p>
           </div>
@@ -134,6 +134,83 @@ export function Explanation() {
         </div>
       </div>
 
+      {/* Estudo comparativo + referências */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-ibge-blue" />
+            Como se compara aos sistemas existentes
+          </h3>
+          <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <p className="font-bold text-slate-800 dark:text-slate-100">MAPGEO2015 / hgeoHNOR (IBGE)</p>
+              <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">
+                Oficial brasileiro, desktop Windows ou serviço online ponto-a-ponto. Aqui: a mesma fonte oficial via
+                API, em lote (~200 pontos por chamada) e direto no navegador.
+              </p>
+            </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <p className="font-bold text-slate-800 dark:text-slate-100">GeoidEval / GeographicLib (NGA)</p>
+              <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">
+                Referência global para EGM96/EGM2008, ponto único via CLI/CGI. Aqui: os mesmos modelos avaliados
+                localmente, integrados ao cálculo H = h − N e ao lote.
+              </p>
+            </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <p className="font-bold text-slate-800 dark:text-slate-100">PROJ / EPSG / ITRF (IGN)</p>
+              <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">
+                Núcleos de referência mundiais para projeções e datums. Aqui: UTM/LTM/ECEF/datums implementados no
+                núcleo próprio e validados por testes contra o PROJ em vetores de referência.
+              </p>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              <strong className="text-ibge-blue dark:text-ibge-light-blue">Diferenciais:</strong> multi-modelo com
+              comparação lado a lado, processamento em lote, DEM aberto, operação offline (PWA), open source e validado
+              por testes automatizados.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-ibge-green" />
+            Referências
+          </h3>
+          <ul className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+            <li>
+              <a href="https://servicodados.ibge.gov.br/api/docs/hgeohnor?versao=1" target="_blank" rel="noopener noreferrer" className="font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline">
+                API hgeoHNOR — IBGE ↗
+              </a>
+              <span className="block text-slate-400 dark:text-slate-500 mt-0.5">Ondulação geoidal oficial (hgeoHNOR/MAPGEO2015), referida ao RN2015.</span>
+            </li>
+            <li>
+              <a href="https://earth-info.nga.mil/#/geospatial-information/gravity-geoid" target="_blank" rel="noopener noreferrer" className="font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline">
+                EGM96 e EGM2008 — NGA ↗
+              </a>
+              <span className="block text-slate-400 dark:text-slate-500 mt-0.5">Modelos globais abertos (grids 15′ e 5′/10′) avaliados no navegador.</span>
+            </li>
+            <li>
+              <a href="https://geographiclib.sourceforge.io/" target="_blank" rel="noopener noreferrer" className="font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline">
+                GeographicLib / GeoidEval ↗
+              </a>
+              <span className="block text-slate-400 dark:text-slate-500 mt-0.5">Âncoras independentes usadas nos testes dos modelos globais.</span>
+            </li>
+            <li>
+              <a href="https://proj.org/" target="_blank" rel="noopener noreferrer" className="font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline">
+                PROJ / EPSG ↗
+              </a>
+              <span className="block text-slate-400 dark:text-slate-500 mt-0.5">Parâmetros de datum (SAD69, Córrego Alegre, ITRF) e vetores de validação UTM/LTM/ECEF.</span>
+            </li>
+            <li>
+              <a href="https://geoftp.ibge.gov.br/metodos_e_outros_documentos_de_referencia/normas/rpr_01_2015_sirgas2000.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline">
+                R.PR 01/2015 — IBGE ↗
+              </a>
+              <span className="block text-slate-400 dark:text-slate-500 mt-0.5">Transformação oficial para SIRGAS2000 (grades CA61/CA7072/SAD69) e REALT-2018.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
       {/* Technical Specs & Privacy */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -187,7 +264,7 @@ export function Explanation() {
             Privacidade
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-            O GeoAlt opera sob uma política de <strong>Retenção Zero</strong>. Suas coordenadas e arquivos CSV são
+            O OpenGeoaltitude opera sob uma política de <strong>Retenção Zero</strong>. Suas coordenadas e arquivos CSV são
             processados de forma efêmera. Nenhuma informação de projeto é armazenada em nossos bancos de dados após o
             processamento.
           </p>
@@ -198,7 +275,7 @@ export function Explanation() {
           <div className="p-3 bg-ibge-green/5 dark:bg-ibge-green/10 rounded-xl border border-ibge-green/20 text-xs text-slate-600 dark:text-slate-300">
             <strong className="text-ibge-green">Instale no celular:</strong> abra o menu do navegador (Chrome/Safari) e
             toque em <em>“Instalar app”</em> ou <em>“Adicionar à tela de início”</em>. Depois da primeira visita, o
-            GeoAlt abre offline — os conversores e o modelo global EGM96 funcionam sem internet.
+            OpenGeoaltitude abre offline — os conversores e o modelo global EGM96 funcionam sem internet.
           </div>
         </div>
       </div>

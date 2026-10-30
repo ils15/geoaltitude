@@ -14,10 +14,10 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'exemplos/geoalt_demo.csv'],
         manifest: {
-          name: 'GeoAlt',
-          short_name: 'GeoAlt',
+          name: 'OpenGeoaltitude',
+          short_name: 'OpenGeoaltitude',
           description:
-            'Conversão de altitudes geométricas (h) em ortométricas (H) com o modelo geoidal hgeoHNOR do IBGE. UTM, datums, EGM96 e serviços abertos.',
+            'Conversão de altitudes geométricas (h) em ortométricas (H) com o geóide oficial do IBGE e modelos globais abertos. UTM, datums, ITRF, DEM e serviços abertos — offline.',
           start_url: './',
           scope: './',
           display: 'standalone',

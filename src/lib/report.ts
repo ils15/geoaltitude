@@ -23,10 +23,10 @@ export function generateReport(results: HgeoResult[]): jsPDF {
   pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(20);
-  pdf.text('Relatório de Conversão Altimétrica', MARGIN, 16);
+  pdf.text('OpenGeoaltitude · Relatório de Conversão Altimétrica', MARGIN, 16);
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
-  pdf.text('GeoAlt · modelo geoidal hgeoHNOR (IBGE) · H = h − N', MARGIN, 24);
+  pdf.text('modelos hgeoHNOR (IBGE) e globais · H = h − N', MARGIN, 24);
   pdf.setTextColor(...GRAY);
   pdf.setFontSize(9);
   const models = [...new Set(results.map((r) => r.modelo).filter(Boolean))].join(', ');
@@ -123,7 +123,7 @@ export function generateReport(results: HgeoResult[]): jsPDF {
     pdf.setFontSize(7.5);
     pdf.setTextColor(...GRAY);
     pdf.text(
-      `Gerado por GeoAlt em ${new Date().toLocaleDateString('pt-BR')} · ils15.github.io/geoaltitude`,
+      `Gerado por OpenGeoaltitude em ${new Date().toLocaleDateString('pt-BR')} · ils15.github.io/geoaltitude`,
       pageW / 2,
       pageH - 8,
       { align: 'center' }

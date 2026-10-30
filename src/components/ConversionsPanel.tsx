@@ -599,6 +599,7 @@ function AltimetrySection() {
   const [dem, setDem] = useState<{ loading: boolean; error?: string; elevation?: number; model?: string }>({
     loading: false,
   });
+  const [comparacao, setComparacao] = useState<Array<{ modelo: string; N: number; atual: boolean }> | null>(null);
 
   const h = parseNum(hText);
   const H = parseNum(hOrtoText);
@@ -614,12 +615,31 @@ function AltimetrySection() {
 
   const consultarN = async () => {
     setLookup({ loading: true });
+    setComparacao(null);
     try {
       const lat = parseDmsString(lookupLat);
       const lon = parseDmsString(lookupLon);
       const s = await fetchUndulation(modelId, lat, lon);
       setNText(String(s.N));
       setLookup({ loading: false, modelo: s.modelo, fonte: s.fonte, incerteza: s.incerteza });
+
+      // comparação com os demais modelos (falhas individuais são silenciosas)
+      const outros = (['HGEOHNOR', 'EGM96', 'EGM2008'] as const).filter((m) => m !== modelId);
+      const labels: Record<string, string> = { HGEOHNOR: 'hgeoHNOR (IBGE)', EGM96: 'EGM96', EGM2008: 'EGM2008' };
+      const resultados = await Promise.all(
+        outros.map(async (m) => {
+          try {
+            const r = await fetchUndulation(m, lat, lon);
+            return { modelo: labels[m], N: r.N, atual: false };
+          } catch {
+            return null;
+          }
+        })
+      );
+      setComparacao([
+        { modelo: labels[modelId], N: s.N, atual: true },
+        ...resultados.filter((r): r is { modelo: string; N: number; atual: boolean } => r !== null),
+      ]);
     } catch (err) {
       setLookup({ loading: false, error: errorMessage(err) });
     }
@@ -815,6 +835,26 @@ function AltimetrySection() {
               </button>
             </div>
             {lookup.error && <ErrorNote message={lookup.error} />}
+            {comparacao && comparacao.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">N por modelo:</span>
+                {comparacao.map((c) => (
+                  <span
+                    key={c.modelo}
+                    title={
+                      c.atual ? 'Modelo usado para preencher a calculadora' : 'Valor nos outros modelos (referência)'
+                    }
+                    className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${
+                      c.atual
+                        ? 'bg-ibge-blue/10 dark:bg-ibge-blue/20 border-ibge-blue/40 text-ibge-blue dark:text-ibge-light-blue font-bold'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                    {c.modelo}: {c.N.toFixed(2)} m{c.atual ? ' ✓' : ''}
+                  </span>
+                ))}
+              </div>
+            )}
             {lookup.modelo && (
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                 N preenchido na calculadora · <span className="font-mono font-semibold">{lookup.modelo}</span> · fonte:{' '}

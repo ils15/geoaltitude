@@ -1,5 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#004a8e"/>
-  <path d="M32 12L40 32L32 52L24 32Z" fill="white"/>
-  <circle cx="32" cy="32" r="4.5" fill="#fdb913"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="OpenGeoaltitude">
+  <defs>
+    <linearGradient id="og-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#003a70"/>
+      <stop offset="0.55" stop-color="#004a8e"/>
+      <stop offset="1" stop-color="#00a1e4"/>
+    </linearGradient>
+    <linearGradient id="og-peak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#bfe3ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fundo -->
+  <rect width="512" height="512" rx="112" fill="url(#og-bg)"/>
+
+  <!-- globo em wireframe -->
+  <g stroke="#ffffff" stroke-opacity="0.85" stroke-width="13" fill="none" stroke-linecap="round">
+    <circle cx="256" cy="224" r="142"/>
+    <ellipse cx="256" cy="224" rx="62" ry="142"/>
+    <path d="M129 172 H383"/>
+    <path d="M118 250 H394"/>
+    <path d="M150 322 C190 348 322 348 362 322"/>
+  </g>
+
+  <!-- pico (montanha) -->
+  <path d="M256 186 L376 442 H136 Z" fill="url(#og-peak)"/>
+  <path d="M256 186 L376 442 H256 Z" fill="#8fc6ee" fill-opacity="0.85"/>
+
+  <!-- ponto de medição no topo -->
+  <circle cx="256" cy="186" r="34" fill="#fdb913" stroke="#ffffff" stroke-width="10"/>
 </svg>

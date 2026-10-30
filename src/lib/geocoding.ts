@@ -14,7 +14,7 @@ export interface ForwardGeocodeResult {
 
 const NOMINATIM_HEADERS = {
   'Accept-Language': 'pt-BR',
-  'User-Agent': 'GeoAlt-App',
+  'User-Agent': 'OpenGeoaltitude-App',
 } as const;
 
 const asRecord = (v: unknown): Record<string, unknown> =>

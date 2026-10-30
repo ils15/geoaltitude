@@ -31,7 +31,7 @@ export function exportKML(points: HgeoResult[]) {
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>GeoAlt Export</name>
+    <name>OpenGeoaltitude Export</name>
     ${points
       .map(
         (p, i) => `
@@ -81,7 +81,7 @@ export function exportDXF(points: HgeoResult[], options?: { withLabels?: boolean
     return { ...utm, z, name: `P${index + 1}` };
   });
 
-  let dxf = `999\nGeoAlt - UTM fuso ${zone} (datum SIRGAS2000/WGS84) - Z ortometrica (H) quando disponivel\n`;
+  let dxf = `999\nOpenGeoaltitude - UTM fuso ${zone} (datum SIRGAS2000/WGS84) - Z ortometrica (H) quando disponivel\n`;
   dxf += `  0\nSECTION\n  2\nENTITIES\n`;
 
   projected.forEach((p) => {

@@ -1,5 +1,5 @@
 /**
- * Projeto GeoAlt salvável (.geoalt.json) e compartilhável (hash da URL).
+ * Projeto OpenGeoaltitude salvável (.geoalt.json) e compartilhável (hash da URL).
  */
 import type { HgeoResult } from './api';
 import { downloadText } from './export';
@@ -26,7 +26,7 @@ export function exportProjectFile(results: HgeoResult[]) {
 export function parseProjectFile(text: string): HgeoResult[] {
   const data: unknown = JSON.parse(text);
   if (typeof data !== 'object' || data === null || (data as GeoAltProject).app !== 'geoalt') {
-    throw new Error('Arquivo não é um projeto GeoAlt (.geoalt.json).');
+    throw new Error('Arquivo não é um projeto OpenGeoaltitude (.geoalt.json).');
   }
   const results = (data as GeoAltProject).results;
   if (!Array.isArray(results)) throw new Error('Projeto sem resultados.');
