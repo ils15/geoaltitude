@@ -13,7 +13,7 @@
 | 2 | Entrada de dados sem atrito | 5 | G | ✅ **concluída** (2026-10-30) |
 | 3 | Ferramentas do topógrafo | 5 | G | ✅ **concluída** (2026-10-30) |
 | 4 | Produto em campo (PWA, PDF, projeto) | 3 + 1 opcional | M–G | ✅ **concluída** (2026-10-30) |
-| 5 | Geodésia profunda | 4 | G | ✅ quase (F5.1 ✅ · F5.3 ✅ · F5.4 ✅ · F5.2 🔶 pesquisa) |
+| 5 | Geodésia profunda | 4 | G | ✅ fechada (F5.1 ✅ · F5.3 ✅ · F5.4 ✅ · F5.2 ⛔ bloqueada externamente — ver nota) |
 
 **Linha de base pós-execução (2026-10-30):** 602 testes unitários + 3 E2E · CI unificado (verify → build → deploy) · ESLint tipo-checado zero erros · `strict: true` · zero `any` estrutural · PWA instalável · deploy contínuo em `https://ils15.github.io/geoaltitude/`.
 

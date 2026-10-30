@@ -15,7 +15,7 @@
 
 1. Abra a aba **Lote (CSV)** e clique em **“Usar dados de exemplo”** — 13 pontos pelo Brasil (do Pão de Açúcar ao Pico da Neblina), com `h` derivada do modelo geoidal real.
 2. Confirme o mapeamento e clique em **Processar Agora**: o app consulta o modelo **hgeoHNOR** do IBGE em lote (~200 pontos por chamada) e calcula `H = h − N`.
-3. Explore mapa colorido por altitude, perfil altimétrico, superfície 3D e exportação CSV/KML/**DXF em UTM**.
+3. Explore mapa colorido por altitude, perfil altimétrico com faixa de discrepância, gráfico de Discrepância N e exportação CSV/KML/**DXF em UTM**.
 4. Na aba **Conversões**, teste UTM ↔ geográficas, datums (SAD69(96) → SIRGAS2000 com parâmetros oficiais IBGE), altimetria h/H/N e distâncias — tudo offline, validado por 538 testes contra o PROJ.
 
 Arquivo de exemplo: [`public/exemplos/geoalt_demo.csv`](public/exemplos/geoalt_demo.csv) (ou baixe direto do app, na aba Entenda).
