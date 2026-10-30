@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, UploadCloud, FileText, Loader2, Download } from 'lucide-react';
+import { ClipboardPaste, Sparkles, UploadCloud, FileText, Loader2, Download, X } from 'lucide-react';
 import Papa from 'papaparse';
 import { getPontosBatch, HgeoResult } from '../lib/api';
 import { isValidCoordinate } from '../lib/validation';
@@ -7,6 +7,7 @@ import { orthometricHeight, parseFatorConversao } from '../lib/geodesy';
 import { reverseGeocode } from '../lib/geocoding';
 import { downloadText } from '../lib/export';
 import { DEMO_ROWS } from '../lib/demoData';
+import { parsePastedCoordinates, pasteRowsToDataRows } from '../lib/pasteParser';
 
 export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoResult[]) => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -205,6 +206,27 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     setStep('mapping');
   };
 
+  // ===== Modo colar: coordenadas de texto livre =====
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const pasteParsed = parsePastedCoordinates(pasteText);
+
+  const loadPasted = () => {
+    const rows = pasteRowsToDataRows(pasteParsed.rows);
+    if (rows.length === 0) {
+      setError('Nenhuma linha colada pôde ser interpretada como coordenada.');
+      return;
+    }
+    setFile(null);
+    setError(null);
+    setHeaders(['latitude', 'longitude', 'altitude_elipsoidal', 'descricao']);
+    setParsedData(rows);
+    setMapping({ lat: 'latitude', lon: 'longitude', h: 'altitude_elipsoidal' });
+    setPasteOpen(false);
+    setPasteText('');
+    setStep('mapping');
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors duration-200">
       <div className="flex items-center justify-between mb-6">
@@ -213,6 +235,13 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Processamento em Lote</h2>
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
+          <button
+            onClick={() => setPasteOpen(true)}
+            className="text-sm text-ibge-blue dark:text-ibge-light-blue hover:text-ibge-blue/80 font-bold flex items-center gap-1 transition-colors"
+          >
+            <ClipboardPaste className="w-4 h-4" />
+            Colar coordenadas
+          </button>
           <button
             onClick={loadDemo}
             className="text-sm text-ibge-green hover:text-ibge-green/80 font-bold flex items-center gap-1 transition-colors"
@@ -420,6 +449,63 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
           </div>
         )}
       </div>
+
+      {pasteOpen && (
+        <div className="fixed inset-0 z-[1200] bg-slate-900/50 flex items-center justify-center p-4" onClick={() => setPasteOpen(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Colar coordenadas"
+            className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-5"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Colar coordenadas</h3>
+              <button type="button" onClick={() => setPasteOpen(false)} aria-label="Fechar" className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+              Uma coordenada por linha: <span className="font-mono">lat, lon[, h]</span> — decimais (ponto ou vírgula) ou
+              GMS (<span className="font-mono">22°54&apos;28,9&quot; S</span>). Separe por vírgula, ponto-e-vírgula ou
+              tabulação (colar do Excel funciona).
+            </p>
+            <textarea
+              value={pasteText}
+              onChange={e => setPasteText(e.target.value)}
+              rows={9}
+              autoFocus
+              placeholder={'-23.5505, -46.6333, 760\n-22°54\'28,9" S; 43°10\'22,4" W\n-15.7939\t-47.8828\t1170'}
+              className="w-full px-3 py-2 font-mono text-xs border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none"
+            />
+            <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+                {pasteText.trim() ? (
+                  <>
+                    <span className="font-bold text-ibge-green">{pasteParsed.valid} válida(s)</span>
+                    {pasteParsed.invalid > 0 && (
+                      <>
+                        {' · '}
+                        <span className="font-bold text-ibge-gold">{pasteParsed.invalid} não interpretada(s)</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  'Cole ou digite as coordenadas acima.'
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={loadPasted}
+                disabled={pasteParsed.valid === 0}
+                className="px-4 py-2 bg-ibge-blue hover:bg-ibge-blue/90 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Usar {pasteParsed.valid > 0 ? `${pasteParsed.valid} ponto(s)` : 'pontos'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-800/30 rounded-lg text-sm transition-colors">
