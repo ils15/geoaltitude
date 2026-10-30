@@ -12,6 +12,8 @@ import { decToDms, geographicToUTM, formatUTM, geodeticToEcef } from '../lib/geo
 import { downloadText } from '../lib/export';
 import { FitBoundsControl } from './FitBoundsControl';
 import { CopyChip } from './CopyChip';
+import { exportProjectFile, parseProjectFile, buildShareHash } from '../lib/project';
+import { FolderOpen, Save, Share2 } from 'lucide-react';
 import { Globe2 } from 'lucide-react';
 
 const SkeletonRow = () => (
@@ -79,10 +81,17 @@ function splitAddress(address?: string) {
   };
 }
 
-export function ResultsView({ results }: { results: HgeoResult[] }) {
+export function ResultsView({
+  results,
+  onImportResults,
+}: {
+  results: HgeoResult[];
+  onImportResults?: (results: HgeoResult[]) => void;
+}) {
   const [view, setView] = React.useState<'table' | 'map'>('table');
   const [addressModal, setAddressModal] = React.useState<{ title: string; full: string } | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const rowsPerPage = 15;
 
@@ -115,6 +124,23 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
   const centerLon = results.reduce((acc, curr) => acc + parseFloat(curr.long), 0) / results.length;
   const resultCoords = results.map((r) => [parseFloat(r.lat), parseFloat(r.long)] as [number, number]);
 
+  const openProjectFile = async (file: File) => {
+    try {
+      const results = parseProjectFile(await file.text());
+      onImportResults?.(results);
+      toast.success(`Projeto carregado: ${results.length} ponto(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao abrir o projeto.');
+    }
+  };
+
+  const shareUrl = async () => {
+    const hash = await buildShareHash(results);
+    const url = `${window.location.origin}${window.location.pathname}${hash}`;
+    void navigator.clipboard.writeText(url);
+    toast.success('Link da sessão copiado para a área de transferência!');
+  };
+
   const downloadResults = () => {
     const csv = Papa.unparse(results);
     downloadText(csv, `resultados_geoaltitude_${new Date().getTime()}.csv`, 'text/csv;charset=utf-8;');
@@ -131,7 +157,45 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
       <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Resultados ({results.length})</h2>
         <div className="flex items-center gap-4">
-          <ReportButton results={results} elementId="report-content" />
+          <input
+            type="file"
+            accept=".geoalt.json"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void openProjectFile(f);
+              e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Abrir projeto (.geoalt.json)"
+            aria-label="Abrir projeto"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          >
+            <FolderOpen className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => exportProjectFile(results)}
+            title="Salvar projeto (.geoalt.json)"
+            aria-label="Salvar projeto"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          >
+            <Save className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => void shareUrl()}
+            title="Copiar link compartilhável da sessão"
+            aria-label="Copiar link compartilhável"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+          <ReportButton results={results} />
           <button
             onClick={downloadResults}
             className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 text-ibge-blue dark:text-ibge-light-blue border border-ibge-blue/20 dark:border-ibge-blue/50 hover:bg-ibge-blue/5 dark:hover:bg-ibge-blue/10 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer shadow-sm active:scale-95"

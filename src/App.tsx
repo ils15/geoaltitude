@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SinglePointForm } from './components/SinglePointForm';
 import { BatchUpload } from './components/BatchUpload';
 import { ShapefileUpload } from './components/ShapefileUpload';
@@ -10,6 +10,7 @@ import { useHistory } from './hooks/useHistory';
 import { useTheme } from './hooks/useTheme';
 import { ThemeToggle } from './components/ThemeToggle';
 import { HgeoResult } from './lib/api';
+import { readShareHash } from './lib/project';
 import {
   Compass,
   Globe2,
@@ -47,6 +48,22 @@ export default function App() {
     setResults(batchResults);
     // Permanece na aba atual para exibir o painel de resultados
   };
+
+  // Sessão compartilhada por link (#p= / #pg=)
+  const [sharedNotice, setSharedNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#p')) return;
+    void readShareHash(hash).then((shared) => {
+      if (shared && shared.length > 0) {
+        setResults(shared);
+        setActiveTab('map');
+        setSharedNotice(
+          `Sessão compartilhada restaurada (${shared.length} ponto(s)). Salve o projeto para não perder.`
+        );
+      }
+    });
+  }, []);
 
   const copyToClipboard = (text: string, index: number) => {
     void navigator.clipboard.writeText(text);
@@ -143,6 +160,18 @@ export default function App() {
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {sharedNotice && (
+          <div className="mb-6 p-3 bg-ibge-blue/5 dark:bg-ibge-blue/10 border border-ibge-blue/20 rounded-xl text-sm text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3">
+            <span>{sharedNotice}</span>
+            <button
+              type="button"
+              onClick={() => setSharedNotice(null)}
+              className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-white"
+            >
+              fechar
+            </button>
+          </div>
+        )}
         <AnimatePresence mode="wait">
           {activeTab === 'map' && (
             <motion.div
@@ -186,7 +215,7 @@ export default function App() {
 
               <div>
                 {results.length > 0 ? (
-                  <ResultsView results={results} />
+                  <ResultsView results={results} onImportResults={setResults} />
                 ) : (
                   <EmptyState
                     icon={<UploadCloud className="w-8 h-8 text-slate-300" />}
@@ -218,7 +247,7 @@ export default function App() {
                 </div>
                 <div className="lg:col-span-7">
                   {results.length === 1 ? (
-                    <ResultsView results={results} />
+                    <ResultsView results={results} onImportResults={setResults} />
                   ) : (
                     <EmptyState
                       icon={<Calculator className="w-8 h-8 text-slate-300" />}
