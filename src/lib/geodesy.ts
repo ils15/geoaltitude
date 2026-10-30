@@ -21,6 +21,7 @@ export interface Ellipsoid {
 export const WGS84: Ellipsoid = { name: 'WGS84', a: 6378137, f: 1 / 298.257223563 };
 export const GRS80: Ellipsoid = { name: 'SIRGAS2000 (GRS80)', a: 6378137, f: 1 / 298.257222101 };
 export const SOUTH_AMERICAN_1969: Ellipsoid = { name: 'South American 1969', a: 6378160, f: 1 / 298.25 };
+export const INTERNATIONAL_1924: Ellipsoid = { name: 'International 1924', a: 6378388, f: 1 / 297 };
 
 export const EARTH_RADIUS_MEAN = 6371008.8; // raio médio IUGG (m)
 export const UTM_SCALE_FACTOR = 0.9996;
@@ -334,7 +335,7 @@ export function formatUTM(utm: UTMCoordinate, decimals = 2): string {
 
 // ===== Datums (Helmert de 3 parâmetros) =====
 
-export type DatumId = 'SIRGAS2000' | 'WGS84' | 'SAD69_96' | 'SAD69_CLASSICO';
+export type DatumId = 'SIRGAS2000' | 'WGS84' | 'SAD69_96' | 'SAD69_CLASSICO' | 'CORREGO_ALEGRE';
 
 export interface DatumDefinition {
   id: DatumId;
@@ -378,6 +379,13 @@ export const DATUMS: Record<DatumId, DatumDefinition> = {
     ellipsoid: SOUTH_AMERICAN_1969,
     helmertToSIRGAS2000: [-57, 1, -41],
     note: 'SAD69 original com os parâmetros clássicos para WGS84 (ΔX=-57, ΔY=+1, ΔZ=-41, registro histórico EPSG; acurácia ~10 m). Útil para resgatar levantamentos antigos.',
+  },
+  CORREGO_ALEGRE: {
+    id: 'CORREGO_ALEGRE',
+    label: 'Córrego Alegre (1970-72)',
+    ellipsoid: INTERNATIONAL_1924,
+    helmertToSIRGAS2000: [-206.05, 168.28, -3.82],
+    note: 'Helmert oficial EPSG:6193 (ΔX=-206.05, ΔY=+168.28, ΔZ=-3.82; acurácia ~5 m) para MG/SP/GO/Triângulo. O método de maior exatidão (~2 m) é a grade oficial IBGE CA7072_003 (R.PR 01/2015).',
   },
 };
 

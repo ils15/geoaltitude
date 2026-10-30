@@ -423,3 +423,29 @@ describe('Elipsoides', () => {
     expect(WGS84.f).not.toBe(GRS80.f);
   });
 });
+
+describe('Datum: Córrego Alegre 1970-72 → SIRGAS2000 (Helmert EPSG:6193)', () => {
+  // Vetores gerados com pyproj: pipeline cart(Intl) → helmert(-206.05, 168.28, -3.82) → cart⁻¹(GRS80),
+  // parâmetros do registro EPSG:6193 (acurácia 5 m)
+  const vectors: Array<[number, number, number, number]> = [
+    [-19.5, -47.0, -19.500309324, -47.000342266],
+    [-20.5, -46.5, -20.500327042, -46.500322369],
+    [-22.0, -47.0, -22.000351943, -47.000347938],
+  ];
+
+  it.each(vectors.map((v) => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3]]))(
+    'transforma %s com o Helmert EPSG:6193',
+    (_label, lat, lon, latOut, lonOut) => {
+      const result = transformDatum(lat, lon, 'CORREGO_ALEGRE', 'SIRGAS2000');
+      expect(result.lat).toBeCloseTo(latOut, 7);
+      expect(result.lon).toBeCloseTo(lonOut, 7);
+    }
+  );
+
+  it('inversa volta ao original (~1 cm)', () => {
+    const forward = transformDatum(-20.5, -46.5, 'CORREGO_ALEGRE', 'SIRGAS2000');
+    const back = transformDatum(forward.lat, forward.lon, 'SIRGAS2000', 'CORREGO_ALEGRE');
+    expect(back.lat).toBeCloseTo(-20.5, 6);
+    expect(back.lon).toBeCloseTo(-46.5, 6);
+  });
+});
