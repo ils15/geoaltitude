@@ -13,9 +13,9 @@
 | 2 | Entrada de dados sem atrito | 5 | G | ✅ **concluída** (2026-10-30) |
 | 3 | Ferramentas do topógrafo | 5 | G | ✅ **concluída** (2026-10-30) |
 | 4 | Produto em campo (PWA, PDF, projeto) | 3 + 1 opcional | M–G | ✅ **concluída** (2026-10-30) |
-| 5 | Geodésia profunda | 4 | G | 🔶 parcial (F5.3 ✅ · F5.1, F5.2, F5.4 abertos) |
+| 5 | Geodésia profunda | 4 | G | ✅ quase (F5.1 ✅ · F5.3 ✅ · F5.4 ✅ · F5.2 🔶 pesquisa) |
 
-**Linha de base pós-execução (2026-10-30):** 591 testes unitários + 3 E2E · CI unificado (verify → build → deploy) · ESLint tipo-checado zero erros · `strict: true` · zero `any` estrutural · PWA instalável · deploy contínuo em `https://ils15.github.io/geoaltitude/`.
+**Linha de base pós-execução (2026-10-30):** 602 testes unitários + 3 E2E · CI unificado (verify → build → deploy) · ESLint tipo-checado zero erros · `strict: true` · zero `any` estrutural · PWA instalável · deploy contínuo em `https://ils15.github.io/geoaltitude/`.
 
 ---
 
@@ -156,8 +156,12 @@
 ### F5.3 — Shapefile com reprojeção ✅
 - [x] Verificado: **shpjs já reprojetar para WGS84 usando o .prj do ZIP**; UI informa o comportamento ("com .prj (ex.: UTM SIRGAS2000), a reprojeção é automática").
 
-### F5.4 — SIRGAS/ITRF com época ⬜ aberto
-- [ ] Helmert 7+3 parâmetros com velocidades (IERS/IBGE) e campo "época" no painel.
+### F5.4 — SIRGAS/ITRF com época ✅ (2026-10-30, segunda rodada)
+- [x] `src/lib/itrf.ts`: Helmert de 14 parâmetros ITRF2000 ↔ ITRF2014 (T=(−0.7, −1.2, +26.1) mm e taxa (−0.1, −0.1, +1.9) mm/ano, DS=−2.12 ppb/−0.11 ppb/ano, t0=2010.0 — valores EPSG do proj.db), convenção position vector, elipsoide GRS80;
+- [x] Validado dígito a dígito contra o pipeline oficial do projinfo executado no pyproj em 3 épocas (2010/2020/2024) — nota de engenharia: o pipeline oficial espera entrada (lat, lon) na ordem nativa do CRS;
+- [x] SIRGAS2000/WGS84 tratados como ITRF2000; inversa exata implementada;
+- [x] Painel Datum: bloco "Épocas ITRF" com época de observação editável (padrão 2024.0);
+- [x] 5 testes (direta em 3 épocas, crescimento temporal, inversa ~0,06 mm).
 
 ---
 
@@ -189,3 +193,7 @@
 - ✅ F3.5 — DXF enriquecido — commits `716250d`, `e46a929` *(correção pós-push: campo inexistente)*
 - ✅ F4.1 + F4.2 + F4.3 — PWA + PDF + projeto — commit `07e86fe`
 - ✅ F5.3 — reprojeção de shapefile (shpjs já faz via .prj) — commit `785eca6`
+- ✅ (2ª rodada, 2026-10-30) quick wins: badge CI + nota PWA + deep-links F4.4 — commit `d01270e` (parte)
+- ✅ F5.1 — EGM2008 offline (grade NGA 10′ própria) — commit posterior a `28cd248`
+- ✅ F5.4 — ITRF com época (14 parâmetros EPSG) — commit posterior a `28cd248`
+- 🔶 F5.2 — MAPGEO2015: geoftp indisponível; obter grade pelo portal do MAPGEO (documentado acima)
