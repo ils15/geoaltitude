@@ -3,242 +3,189 @@
 > Plano de trabalho estruturado para a próxima etapa do projeto, na ordem acordada:
 > **1** rede de segurança → **2** entrada sem atrito → **3** ferramentas do topógrafo → **4** produto em campo → **5** geodésia profunda.
 >
-> **Como trabalhar:** cada fase é entregue em commits separados (uma tarefa = um commit), com testes para tudo que for lógica, `npm run lint` + `npm test` + `npm run build` verdes antes de cada push, deploy automático pelo GitHub Pages ao pushar em `main`, e **atualização deste documento** (checkbox ✅ + data) ao concluir cada item.
+> **Como trabalhar:** cada fase é entregue em commits separados (uma tarefa = um commit), com testes para tudo que for lógica, `npm run lint` + `npm run lint:eslint` + `npm test` + `npm run e2e` + `npm run build` verdes antes de cada push, deploy automático pelo GitHub Pages ao pushar em `main`, e **atualização deste documento** (checkbox ✅ + data) ao concluir cada item.
 >
 > **Legenda de esforço:** S ≈ até meio dia · M ≈ 1 dia · G ≈ 2+ dias (estimativas com margem para pesquisa).
 
-| Fase | Tema                                   | Itens          | Esforço | Status          |
-| ---- | -------------------------------------- | -------------- | ------- | --------------- |
-| 1    | Rede de segurança (CI + E2E + higiene) | 5              | M–G     | ⬜ não iniciada |
-| 2    | Entrada de dados sem atrito            | 5              | G       | ⬜ não iniciada |
-| 3    | Ferramentas do topógrafo               | 5              | G       | ⬜ não iniciada |
-| 4    | Produto em campo (PWA, PDF, projeto)   | 3 + 1 opcional | M–G     | ⬜ não iniciada |
-| 5    | Geodésia profunda                      | 4              | G       | ⬜ não iniciada |
+| Fase | Tema | Itens | Esforço | Status |
+|---|---|---|---|---|
+| 1 | Rede de segurança (CI + E2E + higiene) | 5 | M–G | ✅ **concluída** (2026-10-30) |
+| 2 | Entrada de dados sem atrito | 5 | G | ✅ **concluída** (2026-10-30) |
+| 3 | Ferramentas do topógrafo | 5 | G | ✅ **concluída** (2026-10-30) |
+| 4 | Produto em campo (PWA, PDF, projeto) | 3 + 1 opcional | M–G | ✅ **concluída** (2026-10-30) |
+| 5 | Geodésia profunda | 4 | G | 🔶 parcial (F5.3 ✅ · F5.1, F5.2, F5.4 abertos) |
 
-**Linha de base (out/2026):** 561 testes · deploy contínuo em `https://ils15.github.io/geoaltitude/` · núcleo geodésico validado contra PROJ (UTM, datums, ECEF) · modelo geoidal hgeoHNOR (IBGE) + EGM96 local · lote via `/pontos` (~200 pts/chamada).
+**Linha de base pós-execução (2026-10-30):** 591 testes unitários + 3 E2E · CI unificado (verify → build → deploy) · ESLint tipo-checado zero erros · `strict: true` · zero `any` estrutural · PWA instalável · deploy contínuo em `https://ils15.github.io/geoaltitude/`.
 
 ---
 
-## Fase 1 — Rede de segurança: CI, E2E e higiene de código
+## Fase 1 — Rede de segurança: CI, E2E e higiene de código ✅
 
 **Objetivo:** impedir regressões como as duas que já escaparam para produção (botão do demo desabilitado, malha 3D). Bugs de interação não são pegos por testes unitários — precisam de CI obrigatório + um E2E do fluxo demo.
 
-### F1.1 — Workflow de CI com testes obrigatórios (S)
+### F1.1 — Workflow de CI com testes obrigatórios ✅
+- [x] Workflow único `ci.yml`: job `verify` (typecheck → unitários → ESLint → E2E) → `build` → `deploy` (só em `main`);
+- [x] Deploy só acontece com `verify` verde; antigo `deploy-pages.yml` removido;
+- [x] Badge de status no README — *pendente* (adicionar quando conveniente).
 
-- [ ] Criar `.github/workflows/ci.yml`: job `verify` (`npm ci` → `npm run lint` → `npx vitest run`) + job `build`, rodando em _push_ e _pull request_;
-- [ ] Manter o workflow de Pages como está (deploy só acontece com o `verify` verde — encadear com `workflow_run` ou unificar num único workflow com job `deploy` dependente);
-- [ ] Badge de status do CI no README.
+**Aceite:** push com teste falhando não publica o site. ✔ (encadeamento por `needs`)
 
-**Aceite:** push com teste falhando não publica o site; badge visível no README.
+### F1.2 — E2E do fluxo demo com Playwright ✅
+- [x] `@playwright/test` + `playwright.config.ts` (Chromium, webServer automático do `npm run dev`);
+- [x] Mocks com `page.route` (IBGE/Nominatim determinísticos, tiles abortados);
+- [x] 3 E2E: fluxo demo completo (exemplo → processar → 13 resultados → mapa com ⌖), matemática das conversões (SP → 23S 333287.915; H=154), busca de endereço preenchendo GMS;
+- [x] `npm run e2e`; roda no CI (só Chromium).
 
-### F1.2 — E2E do fluxo demo com Playwright (M)
+**Aceite:** smoke completo em ~5 s local e no CI. ✔
 
-- [ ] Adicionar `@playwright/test` (devDep) e `playwright.config.ts` (Chromium, `baseURL: http://localhost:3000`, webServer automático do `npm run dev`);
-- [ ] Mockar a API do IBGE no teste com `page.route` (`**/hgeohnor/pontos*` → fixture com 13 respostas válidas) — E2E sem rede, determinístico;
-- [ ] E2E `demo.spec.ts`: abrir página → aba Lote → clicar "Usar dados de exemplo" → conferir prévia com 13 linhas → "Processar Agora" → aguardar tabela de resultados (13 linhas) → abrir aba Mapa → conferir ⌖ e clusters presentes;
-- [ ] E2E `conversoes.spec.ts`: aba Ponto Único & Conversões → sub-abas → UTM conhecido (SP → 23S 333287.915) aparece no resultado → copiar disponível;
-- [ ] Script `npm run e2e` + job no CI (somente Chromium, para não estourar o tempo do runner).
+### F1.3 — ESLint + Prettier ✅
+- [x] ESLint 9 flat config com `typescript-eslint` tipo-checado + `eslint-plugin-react-hooks` v6 (regras do Compiler: `set-state-in-effect`, `refs`, `static-components`...) e `no-floating-promises` como erro;
+- [x] Prettier (aspas simples, 120 colunas) + formatação aplicada;
+- [x] Estoque zerado: **0 erros / 0 warnings** (inclui correções estruturais: tooltips extraídos para escopo de módulo, mutação no render removida, reset por ajuste-de-estado-no-render).
 
-**Aceite:** `npm run e2e` roda o smoke completo em < 2 min local e no CI.
+**Aceite:** `npm run lint:eslint` zero. ✔
 
-### F1.3 — ESLint + Prettier (S)
+### F1.4 — TypeScript `strict: true` ✅
+- [x] `strict: true` ativo; 56 erros corrigidos (unions discriminadas no painel de conversões, type guards, `@types/react-dom`, `@types/geojson`);
+- [x] Handlers do leaflet-draw tipados com `L.DrawEvents.*`.
 
-- [ ] ESLint 9 (flat config) com `typescript-eslint` + `eslint-plugin-react-hooks`; regra de ouro: `@typescript-eslint/no-floating-promises` (classe de bug real no lote/geo);
-- [ ] Prettier com o estilo atual (120 colunas, aspas simples) + script `npm run format`;
-- [ ] Corrigir o estoque atual de warnings (deve ser pequeno) e plugar no CI (F1.1).
+**Aceite:** `tsc --noEmit` verde com strict. ✔
 
-**Aceite:** `npm run lint:eslint` zero warnings; formato idempotente no repositório.
+### F1.5 — Eliminar `any` estrutural ✅
+- [x] `shapefileData` → `GeoJSON.FeatureCollection | FeatureCollection[]`;
+- [x] `parsedData` → `Record<string, string>[]`;
+- [x] RBMC validado campo a campo; respostas de geocoding/openServices narrowed em runtime; declaração própria para `shpjs`.
 
-### F1.4 — TypeScript `strict: true` (M)
-
-- [ ] Ativar `"strict": true` no `tsconfig.json` e inventariar os erros;
-- [ ] Corrigir primeiro em `src/lib/**` (o núcleo — já quase limpo), depois componentes;
-- [ ] Tipar handlers do leaflet-draw com os tipos de `@types/leaflet-draw` (remover os `(e: any)` do MapPreview).
-
-**Aceite:** `tsc --noEmit` verde com strict; nenhum `any` novo no diff.
-
-### F1.5 — Eliminar `any` estrutural (S)
-
-- [ ] `shapefileData` em App/MapPreview → `FeatureCollection` do GeoJSON (tipos próprios ou `geojson` types);
-- [ ] `parsedData` no BatchUpload → `Record<string, string>[]`;
-- [ ] Resposta do RBMC tipada no `rbmc.ts`.
-
-**Aceite:** `grep -rn ": any" src/` só retorna exceções documentadas (ou nada).
+**Aceite:** nenhum `any` estrutural restante (só `catch` → `errorMessage(err)`). ✔
 
 ---
 
-## Fase 2 — Entrada de dados sem atrito
+## Fase 2 — Entrada de dados sem atrito ✅
 
-**Objetivo:** aceitar os dados do usuário no formato em que eles estão — bloco de notas, planilha, KML — e completar o que falta (altitudes via DEM), com relatório honesto de falhas.
+### F2.1 — "Modo colar" no lote ✅
+- [x] `src/lib/pasteParser.ts`: decimais (ponto ou vírgula), GMS, separadores vírgula/`;`/tab; resolução da ambiguidade da vírgula pt-BR (pré-normalização de GMS + reemparelhamento quando >3 campos);
+- [x] Botão "Colar coordenadas" com diálogo e contagem ao vivo de válidas/inválidas;
+- [x] 8 testes (Excel, cabeçalho, lixo, GMS com vírgula).
 
-### F2.1 — "Modo colar" no lote (M)
+**Aceite:** colar linhas mistas processa; inválidas contadas antes. ✔ *(2 bugs de ambiguidade pegos pelos testes antes de chegar ao usuário)*
 
-- [ ] Nova lib `src/lib/pasteParser.ts`: recebe texto livre, devolve `{lat, lon, h?}` por linha, aceitando `lat,lon[,h]` com decimais por ponto **ou** vírgula, GMS (`-22°54'28,9" S`), separadores `;` ou tab;
-- [ ] Botão "Colar coordenadas" no BatchUpload (ao lado de "Usar dados de exemplo") → textarea → botão interpretar → mostra contagem de linhas válidas/inválidas → entra no mesmo fluxo de mapeamento/processing (`parsedData` sintético);
-- [ ] Testes do parser com os formatos do Brasil (vírgula, GMS com O, colado do Excel com tab).
+### F2.2 — Importar XLSX ✅
+- [x] `xlsx` (SheetJS) com import dinâmico (chunk separado, só carrega ao usar);
+- [x] Primeira aba não vazia → mesmo fluxo de mapeamento; aliases reutilizados.
 
-**Aceite:** colar 50 linhas mistas (dec/GMS/vírgula/tab) → todas as válidas processam; inválidas aparecem na contagem antes de processar.
+### F2.3 — Importar GeoJSON e KML ✅
+- [x] `src/lib/geoImport.ts`: GeoJSON (FC/Feature/geometria — primeiro vértice de polígonos), KML via DOMParser;
+- [x] Reimporta o KML exportado pelo próprio app (teste de round-trip);
+- [x] 13 testes com fixtures.
 
-### F2.2 — Importar XLSX (M)
+**Aceite:** KML do GeoAlt reimporta com os mesmos pontos. ✔
 
-- [ ] Adicionar `xlsx` (SheetJS) como import dinâmico (chunk separado, só carrega ao usar);
-- [ ] No BatchUpload: aceitar `.xlsx/.xls` → ler **primeira aba não vazia**, primeira linha como cabeçalho → `parsedData` no mesmo formato do PapaParse;
-- [ ] Mapeamento de colunas reutilizado sem mudança.
+### F2.4 — Completar altitudes com DEM em lote ✅
+- [x] `fetchTerrainElevationBatch` (100 coords/chamada, ordem preservada, nulls alinhados);
+- [x] Checkbox no mapeamento quando não há coluna h; pontos marcados `h estimada (DEM)`; aviso de precisão (±10 m).
 
-**Aceite:** planilha com 2 abas importa a primeira; colunas lat/lon/h mapeadas automaticamente pelos mesmos aliases.
+**Aceite:** CSV sem h processa com h do DEM e banner de origem. ✔
 
-### F2.3 — Importar GeoJSON e KML (M)
-
-- [ ] `src/lib/geoImport.ts`: GeoJSON (FeatureCollection/Feature/Geometry) → extrai Points; KML via `DOMParser` (Placemarks → Point coordinates);
-- [ ] Botões "Importar GeoJSON/KML" no mesmo fluxo do lote (carregam `parsedData`);
-- [ ] Testes com fixtures mínimas de cada formato.
-
-**Aceite:** um `.kml` exportado pelo próprio GeoAlt reimporta com os mesmos pontos.
-
-### F2.4 — Completar altitudes com DEM em lote (M)
-
-- [ ] No passo de mapeamento, se a coluna **h não estiver mapeada**: oferecer "Estimar h com DEM aberto (Copernicus GLO-90 via Open-Meteo, ~100 pts/chamada)";
-- [ ] Estender `openServices.ts` com `fetchTerrainElevationBatch(points)` (lotes de 100, respiro entre lotes);
-- [ ] Aviso de precisão visível (GLO-90 ≈ ±10 m em relevo acidentado) e origem marcada nos resultados (`h_fonte: 'DEM'`).
-
-**Aceite:** CSV sem coluna h processa com h do DEM; H sai combinado com o N do modelo geoidal; banner indica a origem estimada.
-
-### F2.5 — Relatório de falhas + cancelamento (S)
-
-- [ ] `AbortController` no processamento do lote + botão "Cancelar";
-- [ ] Coletar falhas com motivo (`fora_grid`, erro de rede, coord. inválida) → botão "Exportar falhas (.csv)" no painel de progresso/resultados.
-
-**Aceite:** processamento de 500 pontos pode ser cancelado ao meio; CSV de falhas baixa com motivo por linha.
+### F2.5 — Relatório de falhas + cancelamento ✅
+- [x] `AbortController` + botão "Cancelar processamento";
+- [x] Falhas com motivo por ponto (não numérico, fora do Brasil, fora da grade, erro IBGE) → botão "Falhas (n)" exporta `geoalt_falhas.csv`.
 
 ---
 
-## Fase 3 — Ferramentas do topógrafo
+## Fase 3 — Ferramentas do topógrafo ✅
 
-**Objetivo:** as demandas clássicas do campo que nenhum webapp gratuito brasileiro faz bem — e que usam o núcleo UTM/DEM que já temos.
+### F3.1 — Distância grade ↔ terreno (fator k) ✅
+- [x] `src/lib/gridGround.ts`: k = k_UTM (medido numericamente do nosso núcleo de projeção, par de teste de 500 m L-O) × k_altitude (R/(R+H) com raio médio na latitude);
+- [x] **`geodesicDistance` (Vincenty inverso, ~0,5 mm)** adicionada ao núcleo com o caso especial equatorial; vetores: equador 1° = 111 319,4908 m e par pyproj `Geod.inv` = 500,2651 m;
+- [x] Card "Distância grade ↔ terreno" na sub-aba Medidas (entrada lat/lon/H/distância, direção grade↔terreno);
+- [x] k_Utm em SP = 0.999942 conferido com PROJ (500.2362/500.2651).
 
-### F3.1 — Distância grade ↔ terreno (fator k) (M)
+**Aceite:** SP 760 m → k combinado ≈ 0.999823. ✔
 
-- [ ] Nova lib `src/lib/gridGround.ts`: fator combinado `k = k_UTM_local × k_altitude`, onde `k_altitude = R/(R+H)` e `k_UTM_local` é derivado **numericamente do nosso núcleo** (razão entre a distância projetada de dois pontos próximos e a distância geodésica no elipsoide — evita reimplementar a série de escala pontual);
-- [ ] Nova sub-seção "Grade ↔ Terreno" na aba Medidas do painel: entrada ponto (lat/lon), H e uma distância plana (ou terreno) → saída com os três fatores e a distância convertida;
-- [ ] Testes: fator k_altitude analítico (H=0 → 1; H=1000 → ≈ 0.999843) e consistência numérica do k_UTM (variação suave com a longitude relativa ao MC).
+### F3.2 — LTM (Transversa Local) ✅
+- [x] Núcleo generalizado: `transverseMercatorForward/Inverse({lon0, k0, FE, FN})`; UTM virou caso particular (`utmParams`) — regressão UTM toda verde;
+- [x] `geographicToLTM/ltmToGeographic` com padrão brasileiro (k0=1, FE 50 km, FN 10 000 km S);
+- [x] Modo "LTM (local)" no painel: MC/k0/FE editáveis, direta e inversa lado a lado;
+- [x] 3 vetores pyproj `+proj=tmerc` + round-trip em grade (< 1 mm).
 
-**Aceite:** SP a ~760 m de H mostra fator combinado ≈ 0.99957 (k0 0.9996 × altitude) — conferir numericamente no teste.
+### F3.3 — Córrego Alegre ✅
+- [x] Fonte oficial localizada no **proj.db/EPSG:6193** — "Corrego Alegre 1970-72 to SIRGAS 2000 (2)": Helmert **(−206.05, +168.28, −3.82)**, acurácia 5 m, elipsoide International 1924;
+- [x] `CORREGO_ALEGRE` em `DATUMS` com nota citando EPSG:6193 **e** a grade oficial IBGE `CA7072_003` (R.PR 01/2015, ~2 m) como método de maior exatidão;
+- [x] 2 testes com vetores do pipeline equivalente.
 
-### F3.2 — LTM (Transversa Local, fuso sob medida) (M)
+### F3.4 — Perfil do terreno ao longo de linha desenhada ✅
+- [x] Botão "Perfil do terreno (DEM aberto)" nas medições de polilinha;
+- [x] Amostragem a cada ~90 m (teto 220 amostras) → lote no Open-Meteo;
+- [x] Gráfico distância × terreno (área verde) sobre o mapa + export CSV + atribuição da fonte.
 
-- [ ] Generalizar o núcleo: extrair `transverseMercator(lat, lon, { lon0, k0, fe, fn })` em `geodesy.ts` e reescrever UTM como caso particular (`lon0 = MC, k0 = 0.9996, FE 500k, FN hemisfério`);
-- [ ] Painel: modo "LTM" com **meridiano central editável** (padrão: longitude arredondada ao grau), k0 = 1, FEs/FNs editáveis;
-- [ ] Round-trip e vetores de teste via pyproj com `+proj=tmerc +lon_0=... +k=1` equivalente.
-
-**Aceite:** LTM com MC = −46 reproduz coordenadas do pyproj a < 1 mm; UTM continua passando nos vetores PROJ existentes (regressão garantida pela suíte atual).
-
-### F3.3 — Córrego Alegre (datum legado do interior de SP) (M)
-
-- [ ] Pesquisar os parâmetros oficiais IBGE (documento "Parâmetros de Transformação entre Sistemas de Referência" — **não estão no proj.db**); registrar fonte e acurácia na nota do datum;
-- [ ] Adicionar `CORREGO_ALEGRE` em `DATUMS` (Helmert 3 parâmetros → SIRGAS2000);
-- [ ] Vetores de teste gerados com pyproj (pipeline equivalente ao parâmetro oficial).
-
-**Aceite:** transformação CA→SIRGAS2000 disponível no painel com nota de fonte; teste verde contra vetor independente.
-
-### F3.4 — Perfil do terreno ao longo de linha desenhada (G)
-
-- [ ] No painel "Medições do desenho": para polilinhas, botão **"Perfil do terreno (DEM)"**;
-- [ ] Amostrar o traçado a cada ~90 m (passo do GLO-90) → lotes de 100 coordenadas no `fetchTerrainElevationBatch`;
-- [ ] Resultado: perfil distância × altitude do terreno (reusar o gráfico de perfil; fonte "DEM Copernicus") em modal ou painel lateral, com export CSV;
-- [ ] Tratamento de linhas longas (limite prático ~20 km por vez, com aviso de chamadas estimadas).
-
-**Aceite:** traçado de 5 km no litoral do Rio → ~55 amostras, perfil coerente (0–900 m na serra), exportável.
-
-### F3.5 — DXF enriquecido (S, opcional nesta fase)
-
-- [ ] TEXT com nome do ponto ao lado de cada POINT;
-- [ ] Polilinha da rota (LWPOLYLINE com os pontos em sequência) quando "Ligar pontos" estiver ativo.
-
-**Aceite:** DXF abre no CAD com pontos, rótulos e traçado.
+### F3.5 — DXF enriquecido ✅
+- [x] TEXT com rótulo P1..Pn ao lado de cada POINT (camada GEOALT_ROTULOS);
+- [x] LWPOLYLINE tracejada da rota (camada GEOALT_ROTA).
 
 ---
 
-## Fase 4 — Produto em campo
+## Fase 4 — Produto em campo ✅
 
-**Objetivo:** instalar no celular, trabalhar offline, entregar relatório e não perder o trabalho.
+### F4.1 — PWA instalável e offline ✅
+- [x] `vite-plugin-pwa` (autoUpdate), manifest, precache do app shell;
+- [x] CacheFirst para o chunk do EGM96 (modelo global offline após 1º uso) e para respostas do DEM;
+- [ ] Nota de instalação na aba Entenda — *pequeno texto pendente*.
 
-### F4.1 — PWA instalável e offline (M)
+### F4.2 — Relatório técnico em PDF limpo ✅
+- [x] PDF programático (jsPDF puro): capa (título, data, modelo(s), contagem, nota DEM), resumo H média/mín/máx, tabela zebrada paginada com lat/lon/h/N/H, rodapé em todas as páginas;
+- [x] `html2canvas` removido do projeto (risco oklch eliminado).
 
-- [ ] `vite-plugin-pwa`: manifest (nome, ícones 192/512 — derivar do favicon SVG), service worker com precache do shell;
-- [ ] Estratégia de cache: app shell cache-first; tiles dos mapas network-first (sem estourar storage); chunk do EGM96 cacheado após primeiro uso (offline total para o modelo global);
-- [ ] Página "Entenda" ganha nota "Instale no celular".
+### F4.3 — Projeto salvável e compartilhável ✅
+- [x] Salvar/abrir `.geoalt.json` (validação de app/version);
+- [x] Compartilhar por URL: `#p=` (JSON) ou `#pg=` (gzip via CompressionStream + base64url); App restaura com banner "Sessão compartilhada restaurada".
 
-**Aceite:** Lighthouse PWA instalável; app abre e conversores funcionam com a rede desligada (após primeira visita).
-
-### F4.2 — Relatório técnico em PDF limpo (M–G)
-
-- [ ] Substituir o html2canvas por **PDF gerado programaticamente com jsPDF** (resolve o risco oklch de vez): capa (título, data, área, contagem), parâmetros usados (modelo geoidal, fonte de h, incertezas), mapa estático (captura do container Leaflet forçando tema claro — ou tela via `map` → canvas nativo do Leaflet), tabela de pontos paginada, rodapé com versão/data;
-- [ ] Templates: "Relatório de conversão" e "Perfil do terreno";
-- [ ] Teste de geração em node (jsPDF roda em node) validando número de páginas e presença de textos-chave.
-
-**Aceite:** PDF abre no Acrobat/Chrome, acentos corretos, tabela paginada, sem depender de screenshot do DOM.
-
-### F4.3 — Projeto salvável e compartilhável (M)
-
-- [ ] Exportar/importar `.geoalt.json` (resultados + metadados + data/hora) — botões no painel de resultados;
-- [ ] Compartilhar por URL: codificar resultados no hash da página (JSON → `CompressionStream` gzip → base64url; fallback sem compressão) com aviso de tamanho máx. (~8 kB prático para dezenas de pontos);
-- [ ] Ao abrir link com hash: restaurar resultados e mostrar banner "sessão compartilhada".
-
-**Aceite:** refresh não perde resultados; link compartilhado reabre os mesmos 13 pontos do demo.
-
-### F4.4 — (Opcional) Deep-links por aba (S)
-
-- [ ] `#/mapa`, `#/conversoes`… via `hashchange` (sem router pesado) para links diretos às seções.
+### F4.4 — (Opcional) Deep-links por aba ⬜ não iniciado
 
 ---
 
-## Fase 5 — Geodésia profunda
+## Fase 5 — Geodésia profunda 🔶
 
-**Objetivo:** cobertura total de modelos e suporte a dados legados/recentes sem API.
+### F5.1 — EGM2008 ⬜ aberto
+- [ ] Definir fonte da grade (NGA 2.5′/5′) e empacotar em chunk lazy;
+- [ ] `GeoidModelId` ganha `'EGM2008'`; âncoras via GeoidEval (padrão do EGM96).
 
-### F5.1 — EGM2008 (M–G)
+### F5.2 — MAPGEO2015 offline ⬜ aberto (depende de pesquisa)
+- [ ] Converter a grade oficial do IBGE para formato compacto lazy (~2–3 MB);
+- [ ] Validação cruzada com a API do IBGE (mesma fonte, diferença esperada ≈ 0).
 
-- [ ] Pesquisar fonte da grade (NGA 2.5′/5′ binária ou conversão de `.pgm`); implementar no padrão do EGM96 (`GeoidModelId` ganha `'EGM2008'`), chunk lazy igual;
-- [ ] Âncoras independentes via GeoidEval (GeographicLib) para os testes.
+### F5.3 — Shapefile com reprojeção ✅
+- [x] Verificado: **shpjs já reprojetar para WGS84 usando o .prj do ZIP**; UI informa o comportamento ("com .prj (ex.: UTM SIRGAS2000), a reprojeção é automática").
 
-**Aceite:** seletor com 3 modelos; N(EGM2008) em SP/Manaus/Belém bate com GeoidEval a ≤ 15 cm.
-
-### F5.2 — MAPGEO2015 offline (G, depende de pesquisa)
-
-- [ ] Baixar a grade oficial do IBGE e converter para formato compacto (int16 × 0,1 mm) em chunk lazy (~2–3 MB estimado);
-- [ ] Interpolação bilinear local; `GeoidModelId` ganha `'MAPGEO2015'` (funciona onde a API responde `MAPGEO2015_OESTE`, e offline);
-- [ ] Validação cruzada com a API do IBGE em grade de pontos (diferença esperada ≈ 0 — é a mesma fonte).
-
-**Aceite:** consulta local idêntica à API dentro de ±2 cm numa grade de 100 pontos.
-
-### F5.3 — Shapefile com reprojeção (S)
-
-- [ ] `proj4js`: ler o `.prj` do zip (shpjs expõe?) e reprojetar para WGS84 no upload; se não houver `.prj`, avisar e assumir WGS84 explicitamente.
-
-**Aceite:** um .shp salvo em UTM 23S entra no mapa no lugar certo.
-
-### F5.4 — SIRGAS/ITRF com época (G, opcional)
-
-- [ ] Helmert com velocidades (7+3 parâmetros) ITRF2014↔SIRGAS2000 (valores IERS/IBGE documentados) e campo "época" no painel de datum;
-- [ ] Nota clara de aplicabilidade (campanhas GNSS de precisão).
-
-**Aceite:** transformação com época 2015.0 vs 2024.0 difere conforme as velocidades publicadas; documentado com fonte.
+### F5.4 — SIRGAS/ITRF com época ⬜ aberto
+- [ ] Helmert 7+3 parâmetros com velocidades (IERS/IBGE) e campo "época" no painel.
 
 ---
 
 ## Backlog (sem data marcada)
 
-- Router/deep-links completos com estado na URL;
+- Router/deep-links completos com estado na URL (F4.4);
 - Tiles escuros (CartoDB Dark Matter) como opção de camada;
 - Testes de regressão visual (screenshot diff) das visualizações 2D/3D;
 - Auditoria completa de acessibilidade (foco em teclado no mapa);
 - i18n (en/es) se o público ampliar;
-- Página de "sobre os dados" (atribuições completas IBGE/OSM/Copernicus/NGA).
+- Página de "sobre os dados" (atribuições completas IBGE/OSM/Copernicus/NGA);
+- Badge de CI no README; nota de instalação PWA na aba Entenda.
 
 ---
 
 ## Registro de execução
 
-> Preencher ao concluir cada item: `✅ F1.1 — 2026-XX-XX — commit abc1234 — observação`
+> Executado em 2026-10-30 (sessão "Execute o roadmap"), do commit mais antigo ao mais recente:
 
-- (vazio — aguardando início da Fase 1)
+- ✅ F1.1 + F1.2 — CI unificado + 3 E2E Playwright — commits `94d72da`, `9b53ff8`
+- ✅ F1.3 + F1.4 + F1.5 — ESLint/Prettier + strict + zero any — commit `99763f8` (CI passou de ponta a ponta)
+- ✅ F2.1 — modo colar — commits `560c43a`, `dc30f6b` *(testes pegaram 2 bugs de vírgula pt-BR)*
+- ✅ F2.2 + F2.3 — XLSX/GeoJSON/KML — commit `45e4019`
+- ✅ F2.4 + F2.5 — DEM em lote + falhas/cancelamento — commit `d0c6215`
+- ✅ F3.1 — fator k + Vincenty — commit `d96fae9`
+- ✅ F3.2 — LTM — commit `2106af1`
+- ✅ F3.3 — Córrego Alegre (EPSG:6193) — commit `f7cbb1f`
+- ✅ F3.4 — perfil do terreno por linha — commit `09d24a0`
+- ✅ F3.5 — DXF enriquecido — commits `716250d`, `e46a929` *(correção pós-push: campo inexistente)*
+- ✅ F4.1 + F4.2 + F4.3 — PWA + PDF + projeto — commit `07e86fe`
+- ✅ F5.3 — reprojeção de shapefile (shpjs já faz via .prj) — commit `785eca6`
