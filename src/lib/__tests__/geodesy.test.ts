@@ -20,6 +20,7 @@ import {
   polygonArea,
   degreesToMeters,
   projectLocalEN,
+  geodesicDistance,
   GRS80,
   WGS84,
 } from '../geodesy';
@@ -333,6 +334,25 @@ describe('ECEF (XYZ geocêntrico)', () => {
     expect(geo.lat).toBeCloseTo(-22, 9);
     expect(geo.lon).toBeCloseTo(-43, 9);
     expect(geo.h).toBeCloseTo(100, 6);
+  });
+});
+
+describe('geodesicDistance (Vincenty, elipsoide WGS84)', () => {
+  it('1° no equador = 111 319,49 m (arco WGS84 exato)', () => {
+    expect(geodesicDistance({ lat: 0, lon: 0 }, { lat: 0, lon: 1 })).toBeCloseTo(111319.4908, 2);
+  });
+
+  it('par de teste do fator k: 500,2651 m (vetor pyproj Geod.inv)', () => {
+    expect(geodesicDistance({ lat: -23.5505, lon: -46.6333 }, { lat: -23.5505, lon: -46.6284003432 })).toBeCloseTo(
+      500.2651,
+      3
+    );
+  });
+
+  it('antipodal não trava (limite de iterações)', () => {
+    const d = geodesicDistance({ lat: 0, lon: 0 }, { lat: 0.5, lon: 179.5 });
+    expect(d).toBeGreaterThan(19_800_000);
+    expect(d).toBeLessThan(20_100_000);
   });
 });
 

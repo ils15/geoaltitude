@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Search } from 'lucide-react';
+import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Ruler, Search } from 'lucide-react';
 import {
   DATUMS,
   DatumId,
@@ -23,6 +23,7 @@ import { fetchTerrainElevation } from '../lib/openServices';
 import { forwardGeocode, ForwardGeocodeResult } from '../lib/geocoding';
 import { errorMessage } from '../lib/errors';
 import { CopyChip } from './CopyChip';
+import { gridGroundFactor, gridToGround, groundToGrid } from '../lib/gridGround';
 
 const inputClass =
   'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all';
@@ -1025,6 +1026,154 @@ function DistanceSection() {
   );
 }
 
+// ===== 5. Grade ↔ Terreno (fator k) =====
+
+function GridGroundSection() {
+  const [latText, setLatText] = useState('-23.5505');
+  const [lonText, setLonText] = useState('-46.6333');
+  const [hText, setHText] = useState('760');
+  const [distText, setDistText] = useState('1000');
+  const [direction, setDirection] = useState<'grid2ground' | 'ground2grid'>('grid2ground');
+
+  const latParsed = parseCoordinateInput(latText);
+  const lonParsed = parseCoordinateInput(lonText);
+  const H = parseNum(hText);
+  const dist = parseNum(distText);
+
+  const factor =
+    latParsed.value !== undefined && lonParsed.value !== undefined && H !== null
+      ? gridGroundFactor(latParsed.value, lonParsed.value, H)
+      : null;
+  const resultDist =
+    factor !== null && dist !== null
+      ? direction === 'grid2ground'
+        ? gridToGround(dist, factor)
+        : groundToGrid(dist, factor)
+      : null;
+
+  return (
+    <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
+        <Ruler className="w-5 h-5 text-ibge-green" />
+        Distância grade ↔ terreno (fator k)
+      </h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        Converte distâncias medidas na planta UTM para o terreno (e vice-versa): k = k<sub>UTM</sub> × k
+        <sub>altitude</sub>, com k<sub>UTM</sub> medido numericamente no ponto pelo núcleo de projeção e k
+        <sub>altitude</sub> = R/(R+H) com o raio de curvatura médio na latitude.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div>
+          <label className={labelClass} htmlFor="gg-lat">
+            Latitude
+          </label>
+          <input
+            id="gg-lat"
+            type="text"
+            value={latText}
+            onChange={(e) => setLatText(e.target.value)}
+            className={inputClass}
+          />
+          {latParsed.error && <ErrorNote message={latParsed.error} />}
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="gg-lon">
+            Longitude
+          </label>
+          <input
+            id="gg-lon"
+            type="text"
+            value={lonText}
+            onChange={(e) => setLonText(e.target.value)}
+            className={inputClass}
+          />
+          {lonParsed.error && <ErrorNote message={lonParsed.error} />}
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="gg-h">
+            Altitude H (m)
+          </label>
+          <input
+            id="gg-h"
+            type="text"
+            value={hText}
+            onChange={(e) => setHText(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="gg-dist">
+            Distância (m)
+          </label>
+          <input
+            id="gg-dist"
+            type="text"
+            value={distText}
+            onChange={(e) => setDistText(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <div
+        className="mt-3 flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit"
+        role="group"
+        aria-label="Direção da conversão"
+      >
+        <button
+          type="button"
+          onClick={() => setDirection('grid2ground')}
+          aria-pressed={direction === 'grid2ground'}
+          className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+            direction === 'grid2ground'
+              ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Grade → Terreno
+        </button>
+        <button
+          type="button"
+          onClick={() => setDirection('ground2grid')}
+          aria-pressed={direction === 'ground2grid'}
+          className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+            direction === 'ground2grid'
+              ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Terreno → Grade
+        </button>
+      </div>
+      <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+        {factor ? (
+          <>
+            <ResultRow
+              label="k UTM (escala da projeção no ponto)"
+              value={factor.kUtm.toFixed(8)}
+              copyText={factor.kUtm.toFixed(8)}
+            />
+            <ResultRow
+              label="k altitude (R/(R+H))"
+              value={factor.kAltitude.toFixed(8)}
+              copyText={factor.kAltitude.toFixed(8)}
+            />
+            <ResultRow label="k combinado" value={factor.k.toFixed(8)} copyText={factor.k.toFixed(8)} />
+            <ResultRow
+              label={direction === 'grid2ground' ? 'Distância no terreno' : 'Distância na grade'}
+              value={
+                resultDist !== null ? `${resultDist.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} m` : '—'
+              }
+              copyText={resultDist !== null ? resultDist.toFixed(4) : undefined}
+            />
+          </>
+        ) : (
+          <p className="text-xs text-slate-500 dark:text-slate-400">Informe latitude, longitude e altitude.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function ConversionsPanel() {
   const [section, setSection] = useState<SectionId>('coordenadas');
 
@@ -1064,7 +1213,12 @@ export function ConversionsPanel() {
         {section === 'coordenadas' && <CoordinatesSection />}
         {section === 'altimetria' && <AltimetrySection />}
         {section === 'datum' && <DatumSection />}
-        {section === 'medidas' && <DistanceSection />}
+        {section === 'medidas' && (
+          <div className="space-y-6">
+            <DistanceSection />
+            <GridGroundSection />
+          </div>
+        )}
       </div>
     </div>
   );

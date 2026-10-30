@@ -434,6 +434,64 @@ export function haversineDistance(a: LatLon, b: LatLon, earthRadius = EARTH_RADI
   return 2 * earthRadius * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * Distância geodésica no ELIPSOIDE (fórmula inversa de Vincenty, precisão
+ * ~0,5 mm). Use esta — e não a Haversine esférica — para fatores de escala
+ * cartográfica e medições de precisão.
+ */
+export function geodesicDistance(a: LatLon, b: LatLon, ellipsoid: Ellipsoid = WGS84): number {
+  const { a: semiMajor, f } = ellipsoid;
+  const φ1 = toRad(a.lat);
+  const φ2 = toRad(b.lat);
+  const L = toRad(normalizeLon(b.lon - a.lon));
+
+  const tanU1 = (1 - f) * Math.tan(φ1);
+  const tanU2 = (1 - f) * Math.tan(φ2);
+  const cosU1 = 1 / Math.sqrt(1 + tanU1 * tanU1);
+  const sinU1 = tanU1 * cosU1;
+  const cosU2 = 1 / Math.sqrt(1 + tanU2 * tanU2);
+  const sinU2 = tanU2 * cosU2;
+
+  let λ = L;
+  let λPrev = λ;
+  let sinλ!: number;
+  let cosλ!: number;
+  let sinσ!: number;
+  let cosσ!: number;
+  let σ!: number;
+  let cos2α!: number;
+
+  for (let iteration = 0; iteration < 200; iteration++) {
+    sinλ = Math.sin(λ);
+    cosλ = Math.cos(λ);
+    sinσ = Math.sqrt((cosU2 * sinλ) ** 2 + (cosU1 * sinU2 - sinU1 * cosU2 * cosλ) ** 2);
+    if (sinσ === 0) return 0; // pontos coincidentes
+    cosσ = sinU1 * sinU2 + cosU1 * cosU2 * cosλ;
+    σ = Math.atan2(sinσ, cosσ);
+    const sinα = (cosU1 * cosU2 * sinλ) / sinσ;
+    cos2α = 1 - sinα * sinα;
+    // Caso especial linha equatorial L-O (cos2α = 0): cos2σm = cosσ
+    const cos2σm = cos2α < 1e-15 ? cosσ : cosσ - (2 * sinU1 * sinU2) / cos2α;
+    const C = (f / 16) * cos2α * (4 + f * (4 - 3 * cos2α));
+    λ = L + (1 - C) * f * sinα * (σ + C * sinσ * (cos2σm + C * cosσ * (-1 + 2 * cos2σm * cos2σm)));
+    if (Math.abs(λ - λPrev) < 1e-12) break;
+    λPrev = λ;
+  }
+
+  const u2 = (cos2α * (semiMajor * semiMajor - (semiMajor * (1 - f)) ** 2)) / (semiMajor * (1 - f)) ** 2;
+  const A = 1 + (u2 / 16384) * (4096 + u2 * (-768 + u2 * (320 - 175 * u2)));
+  const B = (u2 / 1024) * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
+  const cos2σmFinal = cos2α < 1e-15 ? cosσ : cosσ - (2 * sinU1 * sinU2) / cos2α;
+  const Δσ =
+    B *
+    sinσ *
+    (cos2σmFinal +
+      (B / 4) *
+        (cosσ * (-1 + 2 * cos2σmFinal * cos2σmFinal) -
+          (B / 6) * cos2σmFinal * (-3 + 4 * sinσ * sinσ) * (-3 + 4 * cos2σmFinal * cos2σmFinal)));
+  return semiMajor * (1 - f) * A * (σ - Δσ);
+}
+
 /** Comprimento total de uma polilinha (m). */
 export function polylineLength(points: LatLon[]): number {
   let total = 0;
