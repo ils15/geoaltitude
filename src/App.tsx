@@ -29,8 +29,28 @@ import { Toaster } from 'react-hot-toast';
 
 type Tab = 'map' | 'upload' | 'convert' | 'about';
 
+const TAB_FROM_HASH: Record<string, Tab> = {
+  '#/mapa': 'map',
+  '#/lote': 'upload',
+  '#/conversoes': 'convert',
+  '#/entenda': 'about',
+};
+const HASH_FROM_TAB: Record<Tab, string> = {
+  map: '#/mapa',
+  upload: '#/lote',
+  convert: '#/conversoes',
+  about: '#/entenda',
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('upload');
+  const [activeTab, setActiveTabState] = useState<Tab>(() => TAB_FROM_HASH[window.location.hash] ?? 'upload');
+  const setActiveTab = (tab: Tab) => {
+    setActiveTabState(tab);
+    // deep-link simples: mantém o hash do compartilhamento (#p/#pg) intacto
+    if (!window.location.hash.startsWith('#p')) {
+      window.history.replaceState(null, '', HASH_FROM_TAB[tab]);
+    }
+  };
   const [results, setResults] = useState<HgeoResult[]>([]);
   const [shapefileData, setShapefileData] = useState<GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[] | null>(
     null
@@ -51,6 +71,17 @@ export default function App() {
 
   // Sessão compartilhada por link (#p= / #pg=)
   const [sharedNotice, setSharedNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const onHashChange = () => {
+      if (!window.location.hash.startsWith('#p')) {
+        const tab = TAB_FROM_HASH[window.location.hash];
+        if (tab) setActiveTabState(tab);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   useEffect(() => {
     const hash = window.location.hash;
     if (!hash.startsWith('#p')) return;

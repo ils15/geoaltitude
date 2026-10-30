@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "delaunator": "^5.1.0",
     "egm96-universal": "^1.1.1",
+    "geographiclib": "^1.52.2",
     "jspdf": "^4.2.0",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",

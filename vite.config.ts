@@ -1,10 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
-import {VitePWA} from 'vite-plugin-pwa';
+import { defineConfig, loadEnv } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [
@@ -24,7 +24,7 @@ export default defineConfig(({mode}) => {
           background_color: '#f8fafc',
           theme_color: '#004a8e',
           lang: 'pt-BR',
-          icons: [{src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any'}],
+          icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
         },
         workbox: {
           navigateFallback: 'index.html',
@@ -36,12 +36,18 @@ export default defineConfig(({mode}) => {
               // chunk do EGM96 (grade NGA): cacheado após o 1º uso — modelo global offline
               urlPattern: /egm96-universal.*\.js$/,
               handler: 'CacheFirst',
-              options: {cacheName: 'egm96-grid', expiration: {maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 365}},
+              options: { cacheName: 'egm96-grid', expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            },
+            {
+              // grade EGM2008: baixada sob demanda, fica offline para sempre
+              urlPattern: /geoid\/egm2008-10\.bin$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'egm2008-grid', expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 365 } },
             },
             {
               urlPattern: /^https:\/\/api\.open-meteo\.com\/v1\/elevation.*/,
               handler: 'CacheFirst',
-              options: {cacheName: 'dem-cache', expiration: {maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30}},
+              options: { cacheName: 'dem-cache', expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 } },
             },
           ],
         },

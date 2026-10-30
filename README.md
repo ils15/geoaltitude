@@ -1,5 +1,6 @@
 # GeoAlt | Enterprise Geodetic Solution 🌐
 
+[![CI](https://github.com/ils15/geoaltitude/actions/workflows/ci.yml/badge.svg)](https://github.com/ils15/geoaltitude/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Model: hgeoHNOR2020](https://img.shields.io/badge/IBGE-hgeoHNOR2020-green)](https://www.ibge.gov.br/)
 [![Standards: SIRGAS2000](https://img.shields.io/badge/Geodesy-SIRGAS2000-gold)](https://www.sirgas.org/)

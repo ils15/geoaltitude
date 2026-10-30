@@ -7,8 +7,9 @@
  *    localmente no navegador via egm96-universal (dados embutidos, sem rede).
  */
 import { getPontoDec, summarizeHgeoResult } from './api';
+import { createEgm2008Model } from './egm2008';
 
-export type GeoidModelId = 'HGEOHNOR' | 'EGM96';
+export type GeoidModelId = 'HGEOHNOR' | 'EGM96' | 'EGM2008';
 
 export interface GeoidModelInfo {
   id: GeoidModelId;
@@ -28,6 +29,13 @@ export const GEOID_MODELS: GeoidModelInfo[] = [
     id: 'EGM96',
     label: 'EGM96 — NGA (global, aberto)',
     description: 'Modelo global aberto (grade 15′ da NGA) avaliado no navegador, sem internet. Compatível com KML.',
+    requiresInternet: false,
+  },
+  {
+    id: 'EGM2008',
+    label: 'EGM2008 — NGA (global, mais recente)',
+    description:
+      'Grade 10′ reamostrada da oficial 5′ do NGA, avaliada no navegador. Baixada sob demanda (~4,7 MB) e cacheada.',
     requiresInternet: false,
   },
 ];
@@ -50,6 +58,24 @@ function loadEgm96(): Promise<Egm96Module> {
   return egm96ModulePromise;
 }
 
+interface Egm2008Model {
+  undulation(lat: number, lon: number): number;
+}
+let egm2008Promise: Promise<Egm2008Model> | null = null;
+
+function loadEgm2008(): Promise<Egm2008Model> {
+  if (!egm2008Promise) {
+    // bin próprio (~4,7 MB) — baixado sob demanda e cacheado pelo service worker
+    egm2008Promise = (async () => {
+      const response = await fetch('geoid/egm2008-10.bin');
+      if (!response.ok) throw new Error('Falha ao baixar a grade EGM2008.');
+      const buffer = await response.arrayBuffer();
+      return createEgm2008Model(buffer);
+    })();
+  }
+  return egm2008Promise;
+}
+
 /** Ondulação geoidal N (m) no modelo escolhido. Lança erro se o ponto estiver fora da grade. */
 export async function fetchUndulation(model: GeoidModelId, lat: number, lon: number): Promise<UndulationResult> {
   if (model === 'EGM96') {
@@ -58,6 +84,15 @@ export async function fetchUndulation(model: GeoidModelId, lat: number, lon: num
       N: egm96.meanSeaLevel(lat, lon),
       modelo: 'EGM96 (NGA 15′)',
       fonte: 'dados locais (NGA)',
+      incerteza: null,
+    };
+  }
+  if (model === 'EGM2008') {
+    const egm2008 = await loadEgm2008();
+    return {
+      N: egm2008.undulation(lat, lon),
+      modelo: 'EGM2008 (NGA 10′)',
+      fonte: 'dados locais (NGA, reamostrado)',
       incerteza: null,
     };
   }

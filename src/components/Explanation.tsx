@@ -191,9 +191,14 @@ export function Explanation() {
             processados de forma efêmera. Nenhuma informação de projeto é armazenada em nossos bancos de dados após o
             processamento.
           </p>
-          <div className="flex items-center gap-2 text-[10px] font-bold text-ibge-blue uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-ibge-blue uppercase tracking-wider mb-3">
             <Zap className="w-3 h-3" />
             100% Client-Side Ready
+          </div>
+          <div className="p-3 bg-ibge-green/5 dark:bg-ibge-green/10 rounded-xl border border-ibge-green/20 text-xs text-slate-600 dark:text-slate-300">
+            <strong className="text-ibge-green">Instale no celular:</strong> abra o menu do navegador (Chrome/Safari) e
+            toque em <em>“Instalar app”</em> ou <em>“Adicionar à tela de início”</em>. Depois da primeira visita, o
+            GeoAlt abre offline — os conversores e o modelo global EGM96 funcionam sem internet.
           </div>
         </div>
       </div>
