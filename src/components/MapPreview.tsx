@@ -14,7 +14,10 @@ import { EditControl } from 'react-leaflet-draw';
 import { HgeoResult } from '../lib/api';
 import { fetchRBMCStations, RBMCStation } from '../lib/rbmc';
 import { exportCSV, exportKML, exportDXF } from '../lib/export';
-import { polygonArea, polygonPerimeter, polylineLength } from '../lib/geodesy';
+import { polygonArea, polygonPerimeter, polylineLength, haversineDistance } from '../lib/geodesy';
+import { fetchTerrainElevationBatch } from '../lib/openServices';
+import { downloadText } from '../lib/export';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { FitBoundsControl } from './FitBoundsControl';
 import { Map as MapIcon, Layers, Download, ExternalLink, Radio, Ruler } from 'lucide-react';
 import L from 'leaflet';
@@ -58,6 +61,8 @@ interface Measurement {
   id: number;
   label: string;
   detail?: string;
+  /** Pontos da linha (polilinhas): permite amostrar o perfil do terreno (DEM). */
+  points?: Array<{ lat: number; lon: number }>;
 }
 
 const formatDistance = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(3)} km` : `${m.toFixed(2)} m`);
@@ -80,9 +85,9 @@ function measureLayer(layer: L.Layer): Omit<Measurement, 'id'> | null {
       detail: `Área ≈ ${formatAreaM2(Math.PI * r * r)} (plana)`,
     };
   }
-  if (layer instanceof L.Polyline) {
+  if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
     const pts = (layer.getLatLngs() as L.LatLng[]).map((ll) => ({ lat: ll.lat, lon: ll.lng }));
-    return { label: `Distância: ${formatDistance(polylineLength(pts))}` };
+    return { label: `Distância: ${formatDistance(polylineLength(pts))}`, points: pts };
   }
   if (layer instanceof L.Marker) {
     const ll = layer.getLatLng();
@@ -128,6 +133,59 @@ export function MapPreview({
   useEffect(() => {
     void fetchRBMCStations().then(setRbmcStations);
   }, []);
+
+  // ===== Perfil do terreno (DEM) ao longo de uma linha desenhada =====
+  const [profile, setProfile] = useState<{
+    loading: boolean;
+    error?: string;
+    id?: number;
+    data?: Array<{ distKm: number; elevation: number }>;
+  }>({ loading: false });
+
+  const fetchTerrainProfile = async (id: number, pts: Array<{ lat: number; lon: number }>) => {
+    setProfile({ loading: true });
+    try {
+      // amostra a cada ~90 m (passo do GLO-90), teto de 220 amostras
+      const STEP_M = 90;
+      const samples: Array<{ lat: number; lon: number }> = [];
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        const seg = haversineDistance(a, b);
+        const n = Math.max(1, Math.min(200, Math.round(seg / STEP_M)));
+        for (let k = 0; k < n; k++) {
+          const t = k / n;
+          samples.push({ lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t });
+          if (samples.length >= 220) break;
+        }
+        if (samples.length >= 220) break;
+      }
+      samples.push(pts[pts.length - 1]);
+
+      const elevations = await fetchTerrainElevationBatch(samples);
+      let distKm = 0;
+      const data: Array<{ distKm: number; elevation: number }> = [];
+      elevations.forEach((elev, i) => {
+        if (i > 0) distKm += haversineDistance(samples[i - 1], samples[i]) / 1000;
+        if (elev !== null) data.push({ distKm: Number(distKm.toFixed(3)), elevation: Number(elev.toFixed(1)) });
+      });
+      if (data.length === 0) {
+        setProfile({ loading: false, error: 'Nenhuma amostra retornada pelo DEM aberto.' });
+        return;
+      }
+      setProfile({ loading: false, id, data });
+    } catch (err) {
+      setProfile({ loading: false, error: err instanceof Error ? err.message : 'Falha ao amostrar o DEM.' });
+    }
+  };
+
+  const exportProfileCsv = () => {
+    if (!profile.data) return;
+    const csv = ['distancia_km,altitude_terreno_m', ...profile.data.map((d) => `${d.distKm},${d.elevation}`)].join(
+      '\n'
+    );
+    downloadText(csv, 'geoalt_perfil_terreno.csv', 'text/csv;charset=utf-8;');
+  };
 
   // Center map on Brazil or the first point
   const center: [number, number] =
@@ -333,14 +391,85 @@ export function MapPreview({
                   limpar
                 </button>
               </div>
+              {profile.error && (
+                <p className="text-[11px] text-red-600 dark:text-red-400 mb-2" role="alert">
+                  {profile.error}
+                </p>
+              )}
               <ul className="space-y-1.5">
                 {measurements.map((m) => (
                   <li key={m.id} className="font-mono text-xs text-slate-700 dark:text-slate-300">
                     {m.label}
                     {m.detail && <span className="block text-slate-400 dark:text-slate-500">{m.detail}</span>}
+                    {m.points && (
+                      <button
+                        type="button"
+                        onClick={() => void fetchTerrainProfile(m.id, m.points!)}
+                        disabled={profile.loading}
+                        className="mt-1 text-[11px] font-sans font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline disabled:opacity-50"
+                      >
+                        {profile.loading ? 'Amostrando DEM…' : '⛰ Perfil do terreno (DEM aberto)'}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {profile.data && profile.data.length > 1 && (
+            <div className="absolute bottom-4 left-4 right-4 z-[1100] bg-white/97 dark:bg-slate-900/97 backdrop-blur rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
+              <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                <p className="font-semibold text-slate-900 dark:text-white text-sm">
+                  Perfil do terreno (linha desenhada) ·{' '}
+                  <span className="font-mono text-xs font-normal">DEM Copernicus GLO-90 · Open-Meteo</span>
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={exportProfileCsv}
+                    className="text-xs font-medium text-ibge-blue dark:text-ibge-light-blue hover:underline"
+                  >
+                    Exportar CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProfile({ loading: false })}
+                    aria-label="Fechar perfil"
+                    className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div className="h-36 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart margin={{ top: 4, right: 8, bottom: 0, left: 0 }} data={profile.data}>
+                    <defs>
+                      <linearGradient id="terrainFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00a859" stopOpacity={0.5} />
+                        <stop offset="95%" stopColor="#00a859" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} stroke="#94a3b8" strokeOpacity={0.14} />
+                    <XAxis
+                      dataKey="distKm"
+                      tick={{ fontSize: 9, fill: '#64748b' }}
+                      tickFormatter={(v: number) => v.toFixed(1)}
+                      unit=" km"
+                    />
+                    <YAxis tick={{ fontSize: 9, fill: '#64748b' }} width={44} unit=" m" />
+                    <Area
+                      type="monotone"
+                      dataKey="elevation"
+                      stroke="#00a859"
+                      strokeWidth={2}
+                      fill="url(#terrainFill)"
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
 
