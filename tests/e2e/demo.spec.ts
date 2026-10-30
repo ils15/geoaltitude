@@ -6,14 +6,14 @@ import { test, expect, Page } from '@playwright/test';
  * Tiles de mapa são abortados para acelerar.
  */
 async function mockServices(page: Page) {
-  await page.route('**/api/v1/hgeohnor/**', route => {
+  await page.route('**/api/v1/hgeohnor/**', (route) => {
     const url = new URL(route.request().url());
     const pontosParam = url.searchParams.get('pontos');
     if (!pontosParam) return route.fulfill({ status: 200, body: '[]' });
     try {
       const pontos = JSON.parse(decodeURIComponent(pontosParam)) as Array<{ lat: number; lon: number }>;
       const body = JSON.stringify(
-        pontos.map(p => ({
+        pontos.map((p) => ({
           fator_conversao: -3.16,
           incerteza: 0.07,
           lat: String(p.lat),
@@ -26,12 +26,12 @@ async function mockServices(page: Page) {
       return route.fulfill({ status: 200, body: '[]' });
     }
   });
-  await page.route('**/nominatim.openstreetmap.org/**', route => route.fulfill({ status: 200, body: '[]' }));
-  await page.route('**/tile.openstreetmap.org/**', route => route.abort());
-  await page.route('**/server.arcgisonline.com/**', route => route.abort());
-  await page.route('**/tile.opentopomap.org/**', route => route.abort());
-  await page.route('**/geoservicos.ibge.gov.br/**', route => route.abort());
-  await page.route('**/servicodados.ibge.gov.br/api/v1/malhas/**', route => route.abort());
+  await page.route('**/nominatim.openstreetmap.org/**', (route) => route.fulfill({ status: 200, body: '[]' }));
+  await page.route('**/tile.openstreetmap.org/**', (route) => route.abort());
+  await page.route('**/server.arcgisonline.com/**', (route) => route.abort());
+  await page.route('**/tile.opentopomap.org/**', (route) => route.abort());
+  await page.route('**/geoservicos.ibge.gov.br/**', (route) => route.abort());
+  await page.route('**/servicodados.ibge.gov.br/api/v1/malhas/**', (route) => route.abort());
 }
 
 test('fluxo demo: exemplo → processar → resultados → mapa', async ({ page }) => {
@@ -73,7 +73,7 @@ test('ponto único via busca de endereço preenche GMS e limpa erros', async ({ 
   await page.getByRole('button', { name: 'Ponto Único & Conversões' }).click();
 
   // Busca mockada: um único resultado (Praça da Sé)
-  await page.route('**/nominatim.openstreetmap.org/**', route =>
+  await page.route('**/nominatim.openstreetmap.org/**', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -87,7 +87,10 @@ test('ponto único via busca de endereço preenche GMS e limpa erros', async ({ 
   await page.getByRole('button', { name: 'Graus Sexagesimais' }).click();
   await page.getByLabel('Buscar endereço ou lugar').fill('Praca da Se');
   await page.getByRole('button', { name: 'Buscar', exact: true }).first().click();
-  await page.getByRole('button', { name: /Praça da Sé, Sé, São Paulo/ }).first().click();
+  await page
+    .getByRole('button', { name: /Praça da Sé, Sé, São Paulo/ })
+    .first()
+    .click();
 
   await expect(page.getByLabel('Latitude: graus')).toHaveValue('-23');
   await expect(page.getByLabel('Latitude: minutos')).toHaveValue('33');

@@ -34,7 +34,7 @@ export function toDeg(rad: number): number {
 }
 
 export function normalizeLon(lon: number): number {
-  return (((lon + 180) % 360) + 360) % 360 - 180;
+  return ((((lon + 180) % 360) + 360) % 360) - 180;
 }
 
 // ===== Graus sexagesimais (GMS) ↔ graus decimais =====
@@ -114,8 +114,11 @@ export function parseDmsString(input: string): number {
   if (hemisphere === 'S' || hemisphere === 'W' || hemisphere === 'O') negative = true;
 
   text = text.replace(/,/g, '.').replace(/[º°d]/g, '°').replace(/[′´]/g, "'").replace(/[″]/g, '"');
-  const parts = text.split(/[°'"\s]+/).filter(Boolean).map(parseFloat);
-  if (parts.length === 0 || parts.length > 3 || parts.some(p => Number.isNaN(p))) {
+  const parts = text
+    .split(/[°'"\s]+/)
+    .filter(Boolean)
+    .map(parseFloat);
+  if (parts.length === 0 || parts.length > 3 || parts.some((p) => Number.isNaN(p))) {
     throw new Error(`Não foi possível interpretar a coordenada: "${input}"`);
   }
 
@@ -143,7 +146,11 @@ export function utmZoneCentralMeridian(zone: number): number {
 }
 
 function krugerSeries(n: number): { alpha: number[]; beta: number[] } {
-  const n2 = n * n, n3 = n2 * n, n4 = n2 * n2, n5 = n4 * n, n6 = n3 * n3;
+  const n2 = n * n,
+    n3 = n2 * n,
+    n4 = n2 * n2,
+    n5 = n4 * n,
+    n6 = n3 * n3;
   return {
     alpha: [
       n / 2 - (2 / 3) * n2 + (5 / 16) * n3 + (41 / 180) * n4 - (127 / 288) * n5 + (7891 / 37800) * n6,
@@ -165,7 +172,9 @@ function krugerSeries(n: number): { alpha: number[]; beta: number[] } {
 }
 
 function krugerConstant(ellipsoid: Ellipsoid, n: number): number {
-  const n2 = n * n, n4 = n2 * n2, n6 = n4 * n2;
+  const n2 = n * n,
+    n4 = n2 * n2,
+    n6 = n4 * n2;
   return (ellipsoid.a / (1 + n)) * (1 + n2 / 4 + n4 / 64 + n6 / 256);
 }
 
@@ -230,7 +239,6 @@ export function utmToGeographic(utm: UTMCoordinate, ellipsoid: Ellipsoid = WGS84
 
   // Latitudes conforme (χ) e longitude na esfera auxiliar
   const sinχ = Math.sin(ξʹ) / Math.cosh(ηʹ);
-  const cosχ = Math.sqrt(Math.cosh(ηʹ) * Math.cosh(ηʹ) - Math.sin(ξʹ) * Math.sin(ξʹ));
   const ψ = Math.atanh(sinχ); // isométrica da esfera conforme
   const lon = toDeg(Math.atan2(Math.sinh(ηʹ), Math.cos(ξʹ)));
 
@@ -299,7 +307,8 @@ export const DATUMS: Record<DatumId, DatumDefinition> = {
 
 function geodeticToECEF(ellipsoid: Ellipsoid, lat: number, lon: number, h = 0): { x: number; y: number; z: number } {
   const e2 = ellipsoid.f * (2 - ellipsoid.f);
-  const φ = toRad(lat), λ = toRad(lon);
+  const φ = toRad(lat),
+    λ = toRad(lon);
   const N = ellipsoid.a / Math.sqrt(1 - e2 * Math.sin(φ) * Math.sin(φ));
   return {
     x: (N + h) * Math.cos(φ) * Math.cos(λ),
@@ -308,7 +317,12 @@ function geodeticToECEF(ellipsoid: Ellipsoid, lat: number, lon: number, h = 0): 
   };
 }
 
-function ecefToGeodetic(ellipsoid: Ellipsoid, x: number, y: number, z: number): { lat: number; lon: number; h: number } {
+function ecefToGeodetic(
+  ellipsoid: Ellipsoid,
+  x: number,
+  y: number,
+  z: number
+): { lat: number; lon: number; h: number } {
   const e2 = ellipsoid.f * (2 - ellipsoid.f);
   const p = Math.hypot(x, y);
   if (p === 0 && z === 0) return { lat: 0, lon: 0, h: 0 };
@@ -328,13 +342,14 @@ function ecefToGeodetic(ellipsoid: Ellipsoid, x: number, y: number, z: number): 
  * Transforma coordenadas geodésicas entre datums suportados via Helmert
  * de 3 parâmetros (geocêntrico). WGS84 ↔ SIRGAS2000 é tratado como nulo.
  */
-export function transformDatum(lat: number, lon: number, from: DatumId, to: DatumId): { lat: number; lon: number } {  if (!DATUMS[from] || !DATUMS[to]) throw new Error('Datum não suportado.');
+export function transformDatum(lat: number, lon: number, from: DatumId, to: DatumId): { lat: number; lon: number } {
+  if (!DATUMS[from] || !DATUMS[to]) throw new Error('Datum não suportado.');
   if (from === to) return { lat, lon };
 
   const source = DATUMS[from];
   const target = DATUMS[to];
   // WGS84 ↔ SIRGAS2000: helmerts nulos dos dois lados — tratados como equivalentes
-  if (source.helmertToSIRGAS2000.every(v => v === 0) && target.helmertToSIRGAS2000.every(v => v === 0)) {
+  if (source.helmertToSIRGAS2000.every((v) => v === 0) && target.helmertToSIRGAS2000.every((v) => v === 0)) {
     return { lat, lon };
   }
   const ecef = geodeticToECEF(source.ellipsoid, lat, lon);
@@ -465,7 +480,7 @@ export function projectLocalEN(
   const sinφ0 = Math.sin(toRad(origin.lat));
   const M0 = (WGS84.a * (1 - e2)) / (1 - e2 * sinφ0 * sinφ0) ** 1.5;
   const N0 = WGS84.a / Math.sqrt(1 - e2 * sinφ0 * sinφ0);
-  return points.map(p => ({
+  return points.map((p) => ({
     ...p,
     easting: toRad(p.lon - origin.lon) * N0 * Math.cos(toRad(origin.lat)),
     northing: toRad(p.lat - origin.lat) * M0,

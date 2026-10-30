@@ -34,6 +34,66 @@ const CAMERA_EYES = {
 
 type CameraPreset = keyof typeof CAMERA_EYES;
 
+// ===== Tooltips (escopo de módulo: componentes estáveis, fora do render) =====
+
+interface ProfileDatum {
+  name: string;
+  distanceKm: number;
+  H?: number | null;
+  h?: number | null;
+  N?: number | null;
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload?: ProfileDatum }>;
+}
+
+function ProfileTooltip({ active, payload }: TooltipProps) {
+  const data = active ? payload?.[0]?.payload : undefined;
+  if (!data) return null;
+  return (
+    <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 text-xs">
+      <p className="font-bold mb-2 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1">
+        {data.name}
+      </p>
+      <div className="space-y-1">
+        <p>
+          <span className="text-slate-500">Distância acumulada:</span>{' '}
+          <span className="font-mono font-bold">{data.distanceKm.toFixed(2)} km</span>
+        </p>
+        <p>
+          <span className="text-ibge-green">Altitude Ortométrica (H):</span>{' '}
+          <span className="font-mono font-bold">{(data.H ?? 0).toFixed(3)}m</span>
+        </p>
+        <p>
+          <span className="text-slate-500">Altitude Elipsoidal (h):</span>{' '}
+          <span className="font-mono font-bold">{(data.h ?? 0).toFixed(3)}m</span>
+        </p>
+        <p>
+          <span className="text-ibge-blue">Ondulação Geoidal (N):</span>{' '}
+          <span className="font-mono font-bold">{(data.N ?? 0).toFixed(3)}m</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DiscrepancyTooltip({ active, payload }: TooltipProps) {
+  const data = active ? payload?.[0]?.payload : undefined;
+  if (!data) return null;
+  return (
+    <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 text-xs">
+      <p className="font-bold mb-1 text-slate-900 dark:text-white">{data.name}</p>
+      <p>
+        <span className="text-ibge-blue">Ondulação (N):</span>{' '}
+        <span className="font-mono font-bold">{(data.N ?? 0).toFixed(3)} m</span>
+      </p>
+      <p className="text-slate-400 mt-1">h − H = N · a discrepância entre o elipsoide e o nível médio do mar</p>
+    </div>
+  );
+}
+
 export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const [viewMode, setViewMode] = useState<'vertical' | 'discrepancia' | 'plan'>('vertical');
   const [exaggeration, setExaggeration] = useState(1);
@@ -42,7 +102,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
 
   if (results.length < 2) return null;
 
-  const validH = results.filter(r => r.H !== undefined).map(r => r.H as number);
+  const validH = results.filter((r): r is HgeoResult & { H: number } => r.H !== undefined).map((r) => r.H);
   const avgH = validH.length > 0 ? validH.reduce((a, b) => a + b, 0) / validH.length : 0;
   const maxH = validH.length > 0 ? Math.max(...validH) : 0;
   const minH = validH.length > 0 ? Math.min(...validH) : 0;
@@ -66,26 +126,22 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     };
   });
 
-  let cumulativeKm = 0;
-  const profileData = normalizedData.map((point, index, all) => {
-    if (index === 0) {
-      return { ...point, distanceKm: 0, segmentKm: 0 };
-    }
-
-    const prev = all[index - 1];
-    const segmentKm = haversineDistance(prev, point) / 1000;
-    cumulativeKm += segmentKm;
-    return { ...point, distanceKm: cumulativeKm, segmentKm };
-  });
-
-  const points3D = normalizedData.map(point => ({
-    lon: point.lon,
-    lat: point.lat,
-    z: point.colorAltitude,
+  // Distâncias por segmento + acumulada (sem mutação durante o render)
+  const segmentKmList = normalizedData.map((point, index) =>
+    index === 0 ? 0 : haversineDistance(normalizedData[index - 1], point) / 1000
+  );
+  const profileData = normalizedData.map((point, index) => ({
     ...point,
+    segmentKm: segmentKmList[index],
+    distanceKm: segmentKmList.slice(0, index + 1).reduce((a, b) => a + b, 0),
   }));
 
-  const altitudes = points3D.map(point => point.z);
+  const points3D = normalizedData.map((point) => ({
+    ...point,
+    z: point.colorAltitude,
+  }));
+
+  const altitudes = points3D.map((point) => point.z);
   const minAltitude = altitudes.length > 0 ? Math.min(...altitudes) : 0;
   const maxAltitude = altitudes.length > 0 ? Math.max(...altitudes) : 1;
 
@@ -98,7 +154,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
 
   // Projeção local (plano tangente com raios de curvatura exatos) em metros
   const localEN = projectLocalEN(
-    points3D.map(point => ({ lat: point.lat, lon: point.lon })),
+    points3D.map((point) => ({ lat: point.lat, lon: point.lon })),
     { lat: meanLat, lon: meanLon }
   );
   const pointsMeters = points3D.map((point, i) => ({
@@ -107,8 +163,8 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     yMeters: localEN[i].northing,
   }));
 
-  const xValues = pointsMeters.map(point => point.xMeters);
-  const yValues = pointsMeters.map(point => point.yMeters);
+  const xValues = pointsMeters.map((point) => point.xMeters);
+  const yValues = pointsMeters.map((point) => point.yMeters);
   const minX = Math.min(...xValues);
   const maxX = Math.max(...xValues);
   const minY = Math.min(...yValues);
@@ -120,57 +176,55 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
   const boundedMinY = minY - yPadding;
   const boundedMaxY = maxY + yPadding;
 
-  const gridSize = pointsMeters.length > 150 ? 28 : 34;
-  const xGrid = Array.from({ length: gridSize }, (_, i) => boundedMinX + ((boundedMaxX - boundedMinX) * i) / (gridSize - 1));
-  const yGrid = Array.from({ length: gridSize }, (_, i) => boundedMinY + ((boundedMaxY - boundedMinY) * i) / (gridSize - 1));
-
   // Malha Delaunay real com filtragem de triângulos-ponte (lib/mesh.ts)
-  const meshData = triangulate(pointsMeters.map(p => [p.xMeters, p.yMeters] as const));
+  const meshData = triangulate(pointsMeters.map((p) => [p.xMeters, p.yMeters] as const));
   const mesh = {
     vertices: pointsMeters.map((p, idx) => ({ x: p.xMeters, y: p.yMeters, z: p.z, idx })),
     triangles: meshData.triangles,
     empty: meshData.triangles.length < 3,
   };
 
-  const meshTrace: Data = mesh.empty ? {
-    type: 'scatter3d',
-    mode: 'markers',
-    x: [],
-    y: [],
-    z: [],
-    name: 'Superfície',
-  } : {
-    type: 'mesh3d',
-    x: mesh.vertices.map(v => v.x),
-    y: mesh.vertices.map(v => v.y),
-    z: mesh.vertices.map(v => zr(v.z)),
-    i: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 0)),
-    j: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 1)),
-    k: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 2)),
-    opacity: 0.82,
-    lighting: { ambient: 0.55, diffuse: 0.85, specular: 0.12, roughness: 0.9, fresnel: 0.1 },
-    lightposition: { x: 1000, y: 1000, z: 5000 },
-    color: mesh.vertices.map(v => v.z),
-    colorscale: [
-      [0, '#1e3a8a'],
-      [0.33, '#059669'],
-      [0.66, '#f59e0b'],
-      [1, '#dc2626'],
-    ],
-    showscale: true,
-    colorbar: {
-      title: { text: 'Altitude (m)', side: 'right' },
-    },
-    flatshading: false,
-    name: 'Superfície 3D (Mesh)',
-    hovertemplate: 'X: %{x:.1f} m<br>Y: %{y:.1f} m<br>H: %{z:.1f} m<extra></extra>',
-  } as Data;
+  const meshTrace: Data = mesh.empty
+    ? {
+        type: 'scatter3d',
+        mode: 'markers',
+        x: [],
+        y: [],
+        z: [],
+        name: 'Superfície',
+      }
+    : ({
+        type: 'mesh3d',
+        x: mesh.vertices.map((v) => v.x),
+        y: mesh.vertices.map((v) => v.y),
+        z: mesh.vertices.map((v) => zr(v.z)),
+        i: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 0)),
+        j: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 1)),
+        k: new Float32Array(mesh.triangles.filter((_, idx) => idx % 3 === 2)),
+        opacity: 0.82,
+        lighting: { ambient: 0.55, diffuse: 0.85, specular: 0.12, roughness: 0.9, fresnel: 0.1 },
+        lightposition: { x: 1000, y: 1000, z: 5000 },
+        color: mesh.vertices.map((v) => v.z),
+        colorscale: [
+          [0, '#1e3a8a'],
+          [0.33, '#059669'],
+          [0.66, '#f59e0b'],
+          [1, '#dc2626'],
+        ],
+        showscale: true,
+        colorbar: {
+          title: { text: 'Altitude (m)', side: 'right' },
+        },
+        flatshading: false,
+        name: 'Superfície 3D (Mesh)',
+        hovertemplate: 'X: %{x:.1f} m<br>Y: %{y:.1f} m<br>H: %{z:.1f} m<extra></extra>',
+      } as Data);
 
   // Hastes verticais (estilo sondagem/topografia) do plano de base até cada ponto
   const stemX: (number | null)[] = [];
   const stemY: (number | null)[] = [];
   const stemZ: (number | null)[] = [];
-  pointsMeters.forEach(point => {
+  pointsMeters.forEach((point) => {
     stemX.push(point.xMeters, point.xMeters, null);
     stemY.push(point.yMeters, point.yMeters, null);
     stemZ.push(zr(zBase), zr(point.z), null);
@@ -183,7 +237,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     y: stemY,
     z: stemZ,
     line: {
-      color: pointsMeters.map(point => point.z),
+      color: pointsMeters.map((point) => point.z),
       colorscale: [
         [0, '#1e3a8a'],
         [0.33, '#059669'],
@@ -202,21 +256,27 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     type: 'surface',
     x: [boundedMinX, boundedMaxX],
     y: [boundedMinY, boundedMaxY],
-    z: [[zr(zBase), zr(zBase)], [zr(zBase), zr(zBase)]],
+    z: [
+      [zr(zBase), zr(zBase)],
+      [zr(zBase), zr(zBase)],
+    ],
     opacity: 0.15,
     showscale: false,
-    colorscale: [[0, '#64748b'], [1, '#64748b']],
+    colorscale: [
+      [0, '#64748b'],
+      [1, '#64748b'],
+    ],
     hoverinfo: 'skip',
     name: 'Plano de base',
-  } as Data;
+  };
 
   const controlPointsTrace: Data = {
     type: 'scatter3d',
     mode: 'markers',
-    x: pointsMeters.map(point => point.xMeters),
-    y: pointsMeters.map(point => point.yMeters),
-    z: pointsMeters.map(point => zr(point.z)),
-    text: pointsMeters.map(point => {
+    x: pointsMeters.map((point) => point.xMeters),
+    y: pointsMeters.map((point) => point.yMeters),
+    z: pointsMeters.map((point) => zr(point.z)),
+    text: pointsMeters.map((point) => {
       const hValue = point.h ?? 0;
       const hOrto = point.H ?? 0;
       const nValue = point.N ?? 0;
@@ -225,7 +285,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     hovertemplate: '%{text}<extra></extra>',
     marker: {
       size: 6,
-      color: pointsMeters.map(point => point.z),
+      color: pointsMeters.map((point) => point.z),
       cmin: minAltitude,
       cmax: maxAltitude,
       colorscale: [
@@ -270,7 +330,7 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
         showgrid: true,
         gridcolor: 'rgba(148,163,184,0.15)',
         tickformat: '.2f',
-        range: [zr(zBase) - 0.5, Math.max(...pointsMeters.map(p => zr(p.z))) + 0.5],
+        range: [zr(zBase) - 0.5, Math.max(...pointsMeters.map((p) => zr(p.z))) + 0.5],
       },
       aspectmode: 'data',
       camera: {
@@ -285,39 +345,6 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
     displaylogo: false,
     modeBarButtonsToRemove: ['select2d', 'lasso2d', 'resetScale2d', 'autoScale2d'],
     scrollZoom: true,
-  };
-
-  const ProfileTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 text-xs">
-          <p className="font-bold mb-2 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1">{data.name}</p>
-          <div className="space-y-1">
-            <p><span className="text-slate-500">Distância acumulada:</span> <span className="font-mono font-bold">{data.distanceKm.toFixed(2)} km</span></p>
-            <p><span className="text-ibge-green">Altitude Ortométrica (H):</span> <span className="font-mono font-bold">{(data.H ?? 0).toFixed(3)}m</span></p>
-            <p><span className="text-slate-500">Altitude Elipsoidal (h):</span> <span className="font-mono font-bold">{(data.h ?? 0).toFixed(3)}m</span></p>
-            <p><span className="text-ibge-blue">Ondulação Geoidal (N):</span> <span className="font-mono font-bold">{(data.N ?? 0).toFixed(3)}m</span></p>
-          </div>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const DiscrepancyTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 text-xs">
-          <p className="font-bold mb-1 text-slate-900 dark:text-white">{data.name}</p>
-          <p><span className="text-ibge-blue">Ondulação (N):</span> <span className="font-mono font-bold">{(data.N ?? 0).toFixed(3)} m</span></p>
-          <p className="text-slate-400 mt-1">h − H = N · a discrepância entre o elipsoide e o nível médio do mar</p>
-        </div>
-      );
-    }
-    return null;
   };
 
   const nAxisDomain: [number | ((min: number) => number), number | ((max: number) => number)] = [
@@ -363,12 +390,14 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
             <Box className="w-5 h-5 text-ibge-blue" />
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Análise Espacial de Pontos</h3>
           </div>
-          
+
           <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
             <button
               onClick={() => setViewMode('vertical')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                viewMode === 'vertical' ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                viewMode === 'vertical'
+                  ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <TrendingUp className="w-3.5 h-3.5" />
@@ -377,7 +406,9 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
             <button
               onClick={() => setViewMode('discrepancia')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                viewMode === 'discrepancia' ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                viewMode === 'discrepancia'
+                  ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
@@ -386,7 +417,9 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
             <button
               onClick={() => setViewMode('plan')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                viewMode === 'plan' ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                viewMode === 'plan'
+                  ? 'bg-white dark:bg-slate-800 text-ibge-blue shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <MapIcon className="w-3.5 h-3.5" />
@@ -404,24 +437,36 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
               max={5}
               step={0.5}
               value={exaggeration}
-              onChange={e => setExaggeration(parseFloat(e.target.value))}
+              onChange={(e) => setExaggeration(parseFloat(e.target.value))}
               className="w-32 accent-ibge-blue"
               aria-label="Exagero vertical"
             />
-            <span className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue">×{exaggeration.toFixed(1)}</span>
+            <span className="font-mono font-bold text-ibge-blue dark:text-ibge-light-blue">
+              ×{exaggeration.toFixed(1)}
+            </span>
 
             <label className="flex items-center gap-1.5 ml-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={showSurface}
-                onChange={e => setShowSurface(e.target.checked)}
+                onChange={(e) => setShowSurface(e.target.checked)}
                 className="accent-ibge-blue"
               />
               Superfície
             </label>
 
-            <div className="flex items-center gap-0.5 ml-auto bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg" role="group" aria-label="Vista da câmera">
-              {([['iso', 'Iso'], ['topo', 'Planta'], ['perfil', 'Perfil']] as Array<[CameraPreset, string]>).map(([id, label]) => (
+            <div
+              className="flex items-center gap-0.5 ml-auto bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg"
+              role="group"
+              aria-label="Vista da câmera"
+            >
+              {(
+                [
+                  ['iso', 'Iso'],
+                  ['topo', 'Planta'],
+                  ['perfil', 'Perfil'],
+                ] as Array<[CameraPreset, string]>
+              ).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
@@ -445,7 +490,11 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
             <div className="h-full flex flex-col">
               {/* Perfil absoluto: H (área) e h (linha) */}
               <ResponsiveContainer width="100%" height="59%">
-                <ComposedChart margin={{ top: 8, right: 20, bottom: 0, left: 12 }} data={profileData} syncId="perfil-alt">
+                <ComposedChart
+                  margin={{ top: 8, right: 20, bottom: 0, left: 12 }}
+                  data={profileData}
+                  syncId="perfil-alt"
+                >
                   <defs>
                     <linearGradient id="hProfileFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#00a859" stopOpacity={0.55} />
@@ -507,7 +556,11 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
               </p>
               {/* Faixa de N com escala própria — a discrepância é o protagonista */}
               <ResponsiveContainer width="100%" height="33%">
-                <ComposedChart margin={{ top: 4, right: 20, bottom: 0, left: 12 }} data={profileData} syncId="perfil-alt">
+                <ComposedChart
+                  margin={{ top: 4, right: 20, bottom: 0, left: 12 }}
+                  data={profileData}
+                  syncId="perfil-alt"
+                >
                   <CartesianGrid vertical={false} stroke="#94a3b8" strokeOpacity={0.14} />
                   <XAxis
                     type="number"
@@ -589,8 +642,8 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
                   </div>
                 }
               >
-              <Plot
-                data={[basePlaneTrace, ...(showSurface ? [meshTrace] : []), stemsTrace, controlPointsTrace]}
+                <Plot
+                  data={[basePlaneTrace, ...(showSurface ? [meshTrace] : []), stemsTrace, controlPointsTrace]}
                   layout={scatter3DLayout}
                   config={scatter3DConfig}
                   useResizeHandler
@@ -601,14 +654,15 @@ export function StatsDashboard({ results }: { results: HgeoResult[] }) {
             </div>
           )}
         </div>
-        
+
         <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-widest font-bold">
-            Nota Técnica: {(viewMode === 'plan'
+            Nota Técnica:{' '}
+            {viewMode === 'plan'
               ? 'representação 3D geoespacial: malha de Delaunay com filtragem de triângulos-ponte, hastes verticais até o plano de base, exagero vertical ajustável e vistas Iso/Planta/Perfil. Com dados esparsos, desative a superfície e leia o relevo pelas hastes. '
               : viewMode === 'discrepancia'
                 ? 'discrepância altimétrica por ponto: cada barra é a ondulação geoidal N = h − H (azul: geóide abaixo do elipsoide; âmbar: acima). '
-                : 'perfil vertical com distância acumulada (km): H (área), h (linha) e N (barras no eixo secundário) — a diferença entre as duas curvas é a ondulação geoidal. ')}
+                : 'perfil vertical com distância acumulada (km): H (área), h (linha) e N (barras no eixo secundário) — a diferença entre as duas curvas é a ondulação geoidal. '}
             Coordenadas XY em metros (projeção local, plano tangente).
           </p>
         </div>

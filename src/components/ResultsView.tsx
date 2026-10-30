@@ -5,9 +5,9 @@ import { ReportButton } from './ReportButton';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Download, Map as MapIcon, Table2, Layers, Loader2, X } from 'lucide-react';
+import { Download, Map as MapIcon, Table2, Layers, X } from 'lucide-react';
 import Papa from 'papaparse';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { decToDms, geographicToUTM, formatUTM, geodeticToEcef } from '../lib/geodesy';
 import { downloadText } from '../lib/export';
 import { FitBoundsControl } from './FitBoundsControl';
@@ -16,19 +16,35 @@ import { Globe2 } from 'lucide-react';
 
 const SkeletonRow = () => (
   <tr className="animate-pulse border-b border-slate-100 dark:border-slate-800/50">
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-12"></div></td>
-    <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-12"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
+    </td>
   </tr>
 );
 
 // Fix Leaflet icon issue
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -54,7 +70,7 @@ function splitAddress(address?: string) {
 
   const cleanParts = address
     .split(',')
-    .map(part => part.trim())
+    .map((part) => part.trim())
     .filter(Boolean);
 
   return {
@@ -70,10 +86,14 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
 
   const rowsPerPage = 15;
 
-  React.useEffect(() => {
+  // Reset de paginação/modal quando muda o conjunto de resultados
+  // (padrão oficial de ajuste de estado durante o render)
+  const [prevResults, setPrevResults] = React.useState(results);
+  if (prevResults !== results) {
+    setPrevResults(results);
     setCurrentPage(1);
     setAddressModal(null);
-  }, [results]);
+  }
 
   React.useEffect(() => {
     if (!addressModal) return;
@@ -93,10 +113,7 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
 
   const centerLat = results.reduce((acc, curr) => acc + parseFloat(curr.lat), 0) / results.length;
   const centerLon = results.reduce((acc, curr) => acc + parseFloat(curr.long), 0) / results.length;
-  const resultCoords = React.useMemo(
-    () => results.map(r => [parseFloat(r.lat), parseFloat(r.long)] as [number, number]),
-    [results]
-  );
+  const resultCoords = results.map((r) => [parseFloat(r.lat), parseFloat(r.long)] as [number, number]);
 
   const downloadResults = () => {
     const csv = Papa.unparse(results);
@@ -107,7 +124,10 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
   const singleResultWithH = results.length === 1 && results[0].h !== undefined ? results[0] : null;
 
   return (
-    <div id="report-content" className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-200">
+    <div
+      id="report-content"
+      className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-200"
+    >
       <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Resultados ({results.length})</h2>
         <div className="flex items-center gap-4">
@@ -123,7 +143,9 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
             <button
               onClick={() => setView('table')}
               className={`p-1.5 rounded-md transition-colors ${
-                view === 'table' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                view === 'table'
+                  ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Ver Tabela"
               aria-label="Ver Tabela"
@@ -134,7 +156,9 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
             <button
               onClick={() => setView('map')}
               className={`p-1.5 rounded-md transition-colors ${
-                view === 'map' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                view === 'map'
+                  ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Ver Mapa"
               aria-label="Ver Mapa"
@@ -161,20 +185,30 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Altitude Geométrica (h)</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{singleResultWithH.h?.toFixed(3)} <span className="text-sm font-normal text-slate-500">m</span></p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                {singleResultWithH.h?.toFixed(3)} <span className="text-sm font-normal text-slate-500">m</span>
+              </p>
               <p className="text-xs text-slate-400 mt-1">Referência: Elipsoide</p>
             </div>
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Ondulação Geoidal (N)</p>
-              <p className="text-2xl font-bold text-ibge-blue dark:text-ibge-light-blue">{singleResultWithH.fator_conversao} <span className="text-sm font-normal text-ibge-light-blue">m</span></p>
+              <p className="text-2xl font-bold text-ibge-blue dark:text-ibge-light-blue">
+                {singleResultWithH.fator_conversao} <span className="text-sm font-normal text-ibge-light-blue">m</span>
+              </p>
               <p className="text-xs text-slate-400 mt-1">Modelo: {singleResultWithH.modelo}</p>
             </div>
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-ibge-green/30 dark:border-ibge-green/50 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-16 h-16 bg-ibge-green/20 dark:bg-ibge-green/30 rounded-bl-full -mr-8 -mt-8 z-0"></div>
               <div className="relative z-10">
-                <p className="text-xs text-ibge-green dark:text-ibge-green font-medium mb-1">Altitude Ortométrica (H)</p>
-                <p className="text-2xl font-bold text-ibge-green dark:text-ibge-green">{singleResultWithH.H?.toFixed(3)} <span className="text-sm font-normal text-ibge-green">m</span></p>
-                <p className="text-xs text-ibge-green/80 dark:text-ibge-green/80 mt-1">Referência: Nível Médio do Mar (Geóide)</p>
+                <p className="text-xs text-ibge-green dark:text-ibge-green font-medium mb-1">
+                  Altitude Ortométrica (H)
+                </p>
+                <p className="text-2xl font-bold text-ibge-green dark:text-ibge-green">
+                  {singleResultWithH.H?.toFixed(3)} <span className="text-sm font-normal text-ibge-green">m</span>
+                </p>
+                <p className="text-xs text-ibge-green/80 dark:text-ibge-green/80 mt-1">
+                  Referência: Nível Médio do Mar (Geóide)
+                </p>
               </div>
             </div>
           </div>
@@ -185,14 +219,17 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 Comparação com o modelo global (EGM96, offline):
               </span>
               <span>
-                N = <span className="font-mono font-bold">{singleResultWithH.N_egm96!.toFixed(3)} m</span>
+                N = <span className="font-mono font-bold">{singleResultWithH.N_egm96.toFixed(3)} m</span>
               </span>
               <span>
                 H = <span className="font-mono font-bold">{(singleResultWithH.H_egm96 ?? 0).toFixed(3)} m</span>
               </span>
-              {singleResultWithH.H !== undefined && (
+              {singleResultWithH.H !== undefined && singleResultWithH.H_egm96 !== undefined && (
                 <span>
-                  ΔH vs hgeoHNOR: <span className="font-mono font-bold">{(singleResultWithH.H_egm96! - singleResultWithH.H).toFixed(3)} m</span>
+                  ΔH vs hgeoHNOR:{' '}
+                  <span className="font-mono font-bold">
+                    {(singleResultWithH.H_egm96 - singleResultWithH.H).toFixed(3)} m
+                  </span>
                 </span>
               )}
             </div>
@@ -200,85 +237,104 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
 
           {/* Graphic Schematic */}
           <div className="relative h-48 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center p-4">
-             <div className="relative w-full max-w-md h-full flex flex-col justify-center">
-                {/* Superfície Terrestre */}
-                <div className="absolute top-[20%] left-0 w-full border-t-2 border-ibge-green border-dashed"></div>
-                <span className="absolute top-[10%] left-2 text-xs font-medium text-ibge-green">Superfície Terrestre (Ponto)</span>
-                
-                {/* Geóide */}
-                <div className="absolute top-[50%] left-0 w-full border-t-2 border-ibge-light-blue"></div>
-                <span className="absolute top-[40%] left-2 text-xs font-medium text-ibge-light-blue">Geóide (NMM)</span>
-                
-                {/* Elipsoide */}
-                <div className="absolute top-[80%] left-0 w-full border-t-2 border-slate-400"></div>
-                <span className="absolute top-[70%] left-2 text-xs font-medium text-slate-500 dark:text-slate-400">Elipsoide</span>
+            <div className="relative w-full max-w-md h-full flex flex-col justify-center">
+              {/* Superfície Terrestre */}
+              <div className="absolute top-[20%] left-0 w-full border-t-2 border-ibge-green border-dashed"></div>
+              <span className="absolute top-[10%] left-2 text-xs font-medium text-ibge-green">
+                Superfície Terrestre (Ponto)
+              </span>
 
-                {/* Setas e Valores */}
-                <div className="absolute left-1/2 -translate-x-1/2 h-full w-px">
-                  {/* h (Elipsoide até Superfície) */}
-                  <div className="absolute top-[20%] bottom-[20%] left-8 w-px bg-slate-400 flex items-center justify-center">
-                    <div className="w-2 h-px bg-slate-400 absolute top-0"></div>
-                    <div className="w-2 h-px bg-slate-400 absolute bottom-0"></div>
-                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-slate-600 dark:text-slate-300">h = {singleResultWithH.h?.toFixed(2)}m</span>
-                  </div>
+              {/* Geóide */}
+              <div className="absolute top-[50%] left-0 w-full border-t-2 border-ibge-light-blue"></div>
+              <span className="absolute top-[40%] left-2 text-xs font-medium text-ibge-light-blue">Geóide (NMM)</span>
 
-                  {/* H (Geóide até Superfície) */}
-                  <div className="absolute top-[20%] bottom-[50%] -left-8 w-px bg-ibge-green flex items-center justify-center">
-                    <div className="w-2 h-px bg-ibge-green absolute top-0"></div>
-                    <div className="w-2 h-px bg-ibge-green absolute bottom-0"></div>
-                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-ibge-green">H = {singleResultWithH.H?.toFixed(2)}m</span>
-                  </div>
+              {/* Elipsoide */}
+              <div className="absolute top-[80%] left-0 w-full border-t-2 border-slate-400"></div>
+              <span className="absolute top-[70%] left-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                Elipsoide
+              </span>
 
-                  {/* N (Elipsoide até Geóide) */}
-                  <div className="absolute top-[50%] bottom-[20%] -left-8 w-px bg-ibge-blue flex items-center justify-center">
-                    <div className="w-2 h-px bg-ibge-blue absolute top-0"></div>
-                    <div className="w-2 h-px bg-ibge-blue absolute bottom-0"></div>
-                    <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-ibge-blue">N = {singleResultWithH.fator_conversao}m</span>
-                  </div>
+              {/* Setas e Valores */}
+              <div className="absolute left-1/2 -translate-x-1/2 h-full w-px">
+                {/* h (Elipsoide até Superfície) */}
+                <div className="absolute top-[20%] bottom-[20%] left-8 w-px bg-slate-400 flex items-center justify-center">
+                  <div className="w-2 h-px bg-slate-400 absolute top-0"></div>
+                  <div className="w-2 h-px bg-slate-400 absolute bottom-0"></div>
+                  <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    h = {singleResultWithH.h?.toFixed(2)}m
+                  </span>
                 </div>
-             </div>
+
+                {/* H (Geóide até Superfície) */}
+                <div className="absolute top-[20%] bottom-[50%] -left-8 w-px bg-ibge-green flex items-center justify-center">
+                  <div className="w-2 h-px bg-ibge-green absolute top-0"></div>
+                  <div className="w-2 h-px bg-ibge-green absolute bottom-0"></div>
+                  <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-ibge-green">
+                    H = {singleResultWithH.H?.toFixed(2)}m
+                  </span>
+                </div>
+
+                {/* N (Elipsoide até Geóide) */}
+                <div className="absolute top-[50%] bottom-[20%] -left-8 w-px bg-ibge-blue flex items-center justify-center">
+                  <div className="w-2 h-px bg-ibge-blue absolute top-0"></div>
+                  <div className="w-2 h-px bg-ibge-blue absolute bottom-0"></div>
+                  <span className="bg-white dark:bg-slate-800 px-1 text-xs font-bold text-ibge-blue">
+                    N = {singleResultWithH.fator_conversao}m
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {results.length === 1 && (() => {
-        const r0 = results[0];
-        const lat0 = parseFloat(r0.lat);
-        const lon0 = parseFloat(r0.long);
-        const utm = geographicToUTM(lat0, lon0);
-        const ecef = geodeticToEcef(lat0, lon0);
-        const rows: Array<[string, string, string]> = [
-          ['Decimais', `${lat0.toFixed(7)}°, ${lon0.toFixed(7)}°`, `${lat0.toFixed(7)}, ${lon0.toFixed(7)}`],
-          ['GMS', `${decToDms(lat0, true)} / ${decToDms(lon0, false)}`, `${decToDms(lat0, true)} / ${decToDms(lon0, false)}`],
-          ['UTM', formatUTM(utm, 3), formatUTM(utm, 3)],
-          ['ECEF (m)', `X ${ecef.x.toFixed(3)}, Y ${ecef.y.toFixed(3)}, Z ${ecef.z.toFixed(3)}`, `${ecef.x.toFixed(3)}, ${ecef.y.toFixed(3)}, ${ecef.z.toFixed(3)}`],
-        ];
-        return (
-          <div className="p-6 border-b border-slate-200 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-              <Globe2 className="w-4 h-4 text-ibge-blue" />
-              Coordenadas do ponto em outros sistemas
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {rows.map(([label, value, copyText]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800"
-                >
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0">{label}</span>
-                  <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 break-all text-right">
-                    {value}
-                  </span>
-                  <CopyChip text={copyText} label={`Copiar ${label}`} />
-                </div>
-              ))}
+      {results.length === 1 &&
+        (() => {
+          const r0 = results[0];
+          const lat0 = parseFloat(r0.lat);
+          const lon0 = parseFloat(r0.long);
+          const utm = geographicToUTM(lat0, lon0);
+          const ecef = geodeticToEcef(lat0, lon0);
+          const rows: Array<[string, string, string]> = [
+            ['Decimais', `${lat0.toFixed(7)}°, ${lon0.toFixed(7)}°`, `${lat0.toFixed(7)}, ${lon0.toFixed(7)}`],
+            [
+              'GMS',
+              `${decToDms(lat0, true)} / ${decToDms(lon0, false)}`,
+              `${decToDms(lat0, true)} / ${decToDms(lon0, false)}`,
+            ],
+            ['UTM', formatUTM(utm, 3), formatUTM(utm, 3)],
+            [
+              'ECEF (m)',
+              `X ${ecef.x.toFixed(3)}, Y ${ecef.y.toFixed(3)}, Z ${ecef.z.toFixed(3)}`,
+              `${ecef.x.toFixed(3)}, ${ecef.y.toFixed(3)}, ${ecef.z.toFixed(3)}`,
+            ],
+          ];
+          return (
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                <Globe2 className="w-4 h-4 text-ibge-blue" />
+                Coordenadas do ponto em outros sistemas
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {rows.map(([label, value, copyText]) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800"
+                  >
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0">{label}</span>
+                    <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 break-all text-right">
+                      {value}
+                    </span>
+                    <CopyChip text={copyText} label={`Copiar ${label}`} />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+                UTM no fuso do ponto (WGS84 ≈ SIRGAS2000). Conversões do mesmo núcleo validado contra o PROJ.
+              </p>
             </div>
-            <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-              UTM no fuso do ponto (WGS84 ≈ SIRGAS2000). Conversões do mesmo núcleo validado contra o PROJ.
-            </p>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {view === 'table' ? (
         <div className="overflow-x-auto">
@@ -289,61 +345,78 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 <th className="px-6 py-3">Longitude (Dec / GMS)</th>
                 <th className="px-6 py-3">Altitude (h)</th>
                 <th className="px-6 py-3">Ondulação (N)</th>
-                 <th className="px-6 py-3">Altitude (H)</th>
+                <th className="px-6 py-3">Altitude (H)</th>
                 <th className="px-6 py-3">Endereço</th>
                 <th className="px-6 py-3">Incerteza (m)</th>
                 <th className="px-6 py-3">Modelo</th>
               </tr>
             </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {results.length === 0 ? (
-                    <>
-                      <SkeletonRow />
-                      <SkeletonRow />
-                      <SkeletonRow />
-                    </>
-                  ) : paginatedResults.map((res, idx) => (
-                    <tr key={startIdx + idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      {(() => {
-                        const latDisplay = formatCoordinate(res.lat, true);
-                        const lonDisplay = formatCoordinate(res.long, false);
-                        const addressDisplay = splitAddress(res.address);
-                        const rowLabel = `Ponto ${startIdx + idx + 1}`;
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {results.length === 0 ? (
+                <>
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </>
+              ) : (
+                paginatedResults.map((res, idx) => (
+                  <tr key={startIdx + idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    {(() => {
+                      const latDisplay = formatCoordinate(res.lat, true);
+                      const lonDisplay = formatCoordinate(res.long, false);
+                      const addressDisplay = splitAddress(res.address);
+                      const rowLabel = `Ponto ${startIdx + idx + 1}`;
 
-                        return (
-                          <>
-                            <td className="px-6 py-3 font-mono text-xs">
-                              <p>{latDisplay.decimal}°</p>
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500">{latDisplay.dms}</p>
-                            </td>
-                            <td className="px-6 py-3 font-mono text-xs">
-                              <p>{lonDisplay.decimal}°</p>
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500">{lonDisplay.dms}</p>
-                            </td>
-                            <td className="px-6 py-3 font-mono text-xs">{res.h !== undefined ? `${res.h.toFixed(3)}m` : '-'}</td>
-                            <td className="px-6 py-3 font-medium text-ibge-blue dark:text-ibge-light-blue">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</td>
-                            <td className="px-6 py-3 font-mono text-xs font-medium text-ibge-green">{res.H !== undefined ? `${res.H.toFixed(3)}m` : '-'}</td>
-                            <td className="px-6 py-3 text-xs max-w-md align-top">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <p className="font-medium text-slate-800 dark:text-slate-200 truncate" title={addressDisplay.summary}>{addressDisplay.summary}</p>
-                                {addressDisplay.full && addressDisplay.full !== '-' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setAddressModal({ title: rowLabel, full: addressDisplay.full })}
-                                    className="text-[11px] text-ibge-blue dark:text-ibge-light-blue hover:underline shrink-0"
-                                  >
-                                    abrir
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-3">{res.incerteza}{typeof res.incerteza === 'number' ? 'm' : ''}</td>
-                            <td className="px-6 py-3 text-xs">{res.modelo}</td>
-                          </>
-                        );
-                      })()}
-                    </tr>
-                  ))}
+                      return (
+                        <>
+                          <td className="px-6 py-3 font-mono text-xs">
+                            <p>{latDisplay.decimal}°</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500">{latDisplay.dms}</p>
+                          </td>
+                          <td className="px-6 py-3 font-mono text-xs">
+                            <p>{lonDisplay.decimal}°</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500">{lonDisplay.dms}</p>
+                          </td>
+                          <td className="px-6 py-3 font-mono text-xs">
+                            {res.h !== undefined ? `${res.h.toFixed(3)}m` : '-'}
+                          </td>
+                          <td className="px-6 py-3 font-medium text-ibge-blue dark:text-ibge-light-blue">
+                            {res.fator_conversao}
+                            {typeof res.fator_conversao === 'number' ? 'm' : ''}
+                          </td>
+                          <td className="px-6 py-3 font-mono text-xs font-medium text-ibge-green">
+                            {res.H !== undefined ? `${res.H.toFixed(3)}m` : '-'}
+                          </td>
+                          <td className="px-6 py-3 text-xs max-w-md align-top">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p
+                                className="font-medium text-slate-800 dark:text-slate-200 truncate"
+                                title={addressDisplay.summary}
+                              >
+                                {addressDisplay.summary}
+                              </p>
+                              {addressDisplay.full && addressDisplay.full !== '-' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setAddressModal({ title: rowLabel, full: addressDisplay.full })}
+                                  className="text-[11px] text-ibge-blue dark:text-ibge-light-blue hover:underline shrink-0"
+                                >
+                                  abrir
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-3">
+                            {res.incerteza}
+                            {typeof res.incerteza === 'number' ? 'm' : ''}
+                          </td>
+                          <td className="px-6 py-3 text-xs">{res.modelo}</td>
+                        </>
+                      );
+                    })()}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
 
@@ -361,7 +434,9 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 >
                   Anterior
                 </button>
-                <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{safePage}/{totalPages}</span>
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                  {safePage}/{totalPages}
+                </span>
                 <button
                   type="button"
                   disabled={safePage === totalPages}
@@ -391,15 +466,45 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
                 <Popup>
                   <div className="text-sm dark:text-slate-800">
                     <p className="font-semibold mb-1">Ponto {idx + 1}</p>
-                    <p><strong>Lat:</strong> {formatCoordinate(res.lat, true).decimal}°</p>
-                    <p><strong>Lon:</strong> {formatCoordinate(res.long, false).decimal}°</p>
-                    <p className="text-xs text-slate-500"><strong>Lat (GMS):</strong> {formatCoordinate(res.lat, true).dms}</p>
-                    <p className="text-xs text-slate-500"><strong>Lon (GMS):</strong> {formatCoordinate(res.long, false).dms}</p>
-                    {res.h !== undefined && <p><strong>Alt. Geométrica (h):</strong> {res.h.toFixed(3)}m</p>}
-                    <p><strong>Ondulação (N):</strong> <span className="text-ibge-blue font-medium">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</span></p>
-                     {res.H !== undefined && <p><strong>Alt. Ortométrica (H):</strong> <span className="text-ibge-green font-medium">{res.H.toFixed(3)}m</span></p>}
-                    {res.address && <p><strong>Localização:</strong> {res.address}</p>}
-                    <p><strong>Incerteza:</strong> {res.incerteza}{typeof res.incerteza === 'number' ? 'm' : ''}</p>
+                    <p>
+                      <strong>Lat:</strong> {formatCoordinate(res.lat, true).decimal}°
+                    </p>
+                    <p>
+                      <strong>Lon:</strong> {formatCoordinate(res.long, false).decimal}°
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      <strong>Lat (GMS):</strong> {formatCoordinate(res.lat, true).dms}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      <strong>Lon (GMS):</strong> {formatCoordinate(res.long, false).dms}
+                    </p>
+                    {res.h !== undefined && (
+                      <p>
+                        <strong>Alt. Geométrica (h):</strong> {res.h.toFixed(3)}m
+                      </p>
+                    )}
+                    <p>
+                      <strong>Ondulação (N):</strong>{' '}
+                      <span className="text-ibge-blue font-medium">
+                        {res.fator_conversao}
+                        {typeof res.fator_conversao === 'number' ? 'm' : ''}
+                      </span>
+                    </p>
+                    {res.H !== undefined && (
+                      <p>
+                        <strong>Alt. Ortométrica (H):</strong>{' '}
+                        <span className="text-ibge-green font-medium">{res.H.toFixed(3)}m</span>
+                      </p>
+                    )}
+                    {res.address && (
+                      <p>
+                        <strong>Localização:</strong> {res.address}
+                      </p>
+                    )}
+                    <p>
+                      <strong>Incerteza:</strong> {res.incerteza}
+                      {typeof res.incerteza === 'number' ? 'm' : ''}
+                    </p>
                   </div>
                 </Popup>
               </Marker>
@@ -409,16 +514,21 @@ export function ResultsView({ results }: { results: HgeoResult[] }) {
       )}
 
       {addressModal && (
-        <div className="fixed inset-0 z-[1200] bg-slate-900/45 flex items-center justify-center p-4" onClick={() => setAddressModal(null)}>
+        <div
+          className="fixed inset-0 z-[1200] bg-slate-900/45 flex items-center justify-center p-4"
+          onClick={() => setAddressModal(null)}
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-label={`${addressModal.title} - endereço completo`}
             className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl p-4"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">{addressModal.title} - Endereço completo</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                {addressModal.title} - Endereço completo
+              </p>
               <button
                 type="button"
                 onClick={() => setAddressModal(null)}

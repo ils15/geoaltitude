@@ -15,7 +15,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
   const [error, setError] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState({ lat: '', lon: '', h: '' });
-  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
   const [stats, setStats] = useState({ valid: 0, ignored: 0, failed: 0 });
   const [seekAddresses, setSeekAddresses] = useState(false);
   const [step, setStep] = useState<'upload' | 'mapping' | 'processing'>('upload');
@@ -42,9 +42,20 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const data = results.data as any[];
+        const data = results.data.map((row) => {
+          const typed: Record<string, string> = {};
+          for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+            typed[key] =
+              typeof value === 'string'
+                ? value
+                : typeof value === 'number' || typeof value === 'boolean'
+                  ? String(value)
+                  : '';
+          }
+          return typed;
+        });
         const fields = results.meta.fields || [];
-        
+
         if (data.length === 0 || fields.length === 0) {
           setError('O arquivo está vazio ou mal formatado.');
           setLoading(false);
@@ -55,24 +66,26 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
         setParsedData(data);
 
         // Auto-detect columns
-        const lowerFields = fields.map(f => f.toLowerCase().trim());
-        const latIdx = lowerFields.findIndex(f => ['lat', 'latitude', 'y'].includes(f));
-        const lonIdx = lowerFields.findIndex(f => ['lon', 'long', 'longitude', 'lng', 'x'].includes(f));
-        const hIdx = lowerFields.findIndex(f => ['h', 'alt', 'altitude', 'elev', 'elevacao', 'z', 'altitude_elipsoidal'].includes(f));
+        const lowerFields = fields.map((f) => f.toLowerCase().trim());
+        const latIdx = lowerFields.findIndex((f) => ['lat', 'latitude', 'y'].includes(f));
+        const lonIdx = lowerFields.findIndex((f) => ['lon', 'long', 'longitude', 'lng', 'x'].includes(f));
+        const hIdx = lowerFields.findIndex((f) =>
+          ['h', 'alt', 'altitude', 'elev', 'elevacao', 'z', 'altitude_elipsoidal'].includes(f)
+        );
 
         setMapping({
           lat: latIdx !== -1 ? fields[latIdx] : '',
           lon: lonIdx !== -1 ? fields[lonIdx] : '',
-          h: hIdx !== -1 ? fields[hIdx] : ''
+          h: hIdx !== -1 ? fields[hIdx] : '',
         });
-        
+
         setStep('mapping');
         setLoading(false);
       },
       error: (err) => {
         setError(`Erro ao ler arquivo: ${err.message}`);
         setLoading(false);
-      }
+      },
     });
   };
 
@@ -87,16 +100,16 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     setProgress(0);
     setStats({ valid: 0, ignored: 0, failed: 0 });
 
-    const validPoints: {lat: number, lon: number, h?: number}[] = [];
+    const validPoints: { lat: number; lon: number; h?: number }[] = [];
     let ignoredCount = 0;
 
     for (const row of parsedData) {
-      const lat = parseFloat(row[mapping.lat]);
-      const lon = parseFloat(row[mapping.lon]);
+      const lat = parseFloat(String(row[mapping.lat] ?? '').replace(',', '.'));
+      const lon = parseFloat(String(row[mapping.lon] ?? '').replace(',', '.'));
       let h: number | undefined = undefined;
-      
+
       if (mapping.h && row[mapping.h]) {
-        const parsedH = parseFloat(row[mapping.h]);
+        const parsedH = parseFloat(String(row[mapping.h]).replace(',', '.'));
         if (!isNaN(parsedH)) h = parsedH;
       }
 
@@ -112,7 +125,9 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     setStats({ valid: validPoints.length, ignored: ignoredCount, failed: 0 });
 
     if (validPoints.length === 0) {
-      setError(`Nenhum ponto válido na área de cobertura do Brasil. ${ignoredCount > 0 ? `(${ignoredCount} pontos ignorados)` : ''}`);
+      setError(
+        `Nenhum ponto válido na área de cobertura do Brasil. ${ignoredCount > 0 ? `(${ignoredCount} pontos ignorados)` : ''}`
+      );
       setLoading(false);
       setStep('mapping');
       return;
@@ -128,7 +143,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     for (let i = 0; i < validPoints.length; i += BATCH_SIZE) {
       const chunk = validPoints.slice(i, i + BATCH_SIZE);
       try {
-        const batch = await getPontosBatch(chunk.map(p => ({ lat: p.lat, lon: p.lon })));
+        const batch = await getPontosBatch(chunk.map((p) => ({ lat: p.lat, lon: p.lon })));
         const count = Math.min(batch.length, chunk.length);
         for (let j = 0; j < count; j++) {
           const res = batch[j];
@@ -152,7 +167,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
       completed += chunk.length;
       setProgress(Math.round((completed / validPoints.length) * 100));
       if (i + BATCH_SIZE < validPoints.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
@@ -166,7 +181,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
       }
     }
 
-    setStats(s => ({ ...s, failed }));
+    setStats((s) => ({ ...s, failed }));
     if (processedResults.length === 0) {
       setError('Nenhum ponto retornou ondulação geoidal (fora da grade do modelo hgeoHNOR ou erro na consulta).');
     }
@@ -185,7 +200,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
     setFile(null);
     setError(null);
     setHeaders(headers);
-    setParsedData(DEMO_ROWS as any[]);
+    setParsedData(DEMO_ROWS);
     setMapping({ lat: 'latitude', lon: 'longitude', h: 'altitude_elipsoidal' });
     setStep('mapping');
   };
@@ -217,21 +232,15 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
 
       <div className="space-y-6">
         {step === 'upload' && (
-          <div 
+          <div
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-              file 
-                ? 'border-ibge-blue/30 dark:border-ibge-blue/50 bg-ibge-blue/5 dark:bg-ibge-blue/20' 
+              file
+                ? 'border-ibge-blue/30 dark:border-ibge-blue/50 bg-ibge-blue/5 dark:bg-ibge-blue/20'
                 : 'border-slate-300 dark:border-slate-700 hover:border-ibge-blue/50 dark:hover:border-ibge-blue/50 bg-slate-50 dark:bg-slate-800/50'
             }`}
           >
-            <input
-              type="file"
-              accept=".csv,.txt"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-            />
-            
+            <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+
             {file ? (
               <div className="flex flex-col items-center gap-3">
                 <FileText className="w-10 h-10 text-ibge-blue" />
@@ -252,7 +261,9 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
               <div className="flex flex-col items-center gap-3">
                 <UploadCloud className="w-10 h-10 text-slate-400 dark:text-slate-500" />
                 <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">Clique para selecionar ou arraste o arquivo</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    Clique para selecionar ou arraste o arquivo
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Apenas arquivos CSV ou TXT</p>
                 </div>
                 <button
@@ -268,46 +279,62 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
 
         {step === 'mapping' && (
           <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-            <h3 className="text-sm font-bold text-ibge-blue dark:text-ibge-light-blue uppercase tracking-wider mb-2">Mapeamento de Colunas</h3>
-            
+            <h3 className="text-sm font-bold text-ibge-blue dark:text-ibge-light-blue uppercase tracking-wider mb-2">
+              Mapeamento de Colunas
+            </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Latitude</label>
-                <select 
+                <select
                   value={mapping.lat}
-                  onChange={(e) => setMapping({...mapping, lat: e.target.value})}
+                  onChange={(e) => setMapping({ ...mapping, lat: e.target.value })}
                   className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-ibge-blue outline-none"
                 >
                   <option value="">Selecione...</option>
-                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Longitude</label>
-                <select 
-                  value={mapping.lon}
-                  onChange={(e) => setMapping({...mapping, lon: e.target.value})}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-ibge-blue outline-none"
-                >
-                  <option value="">Selecione...</option>
-                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Altitude (h)</label>
-                <select 
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Longitude</label>
+                <select
+                  value={mapping.lon}
+                  onChange={(e) => setMapping({ ...mapping, lon: e.target.value })}
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-ibge-blue outline-none"
+                >
+                  <option value="">Selecione...</option>
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                  Altitude (h)
+                </label>
+                <select
                   value={mapping.h}
-                  onChange={(e) => setMapping({...mapping, h: e.target.value})}
+                  onChange={(e) => setMapping({ ...mapping, h: e.target.value })}
                   className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-ibge-blue outline-none"
                 >
                   <option value="">Pular / Não usar</option>
-                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
-            
+
             <p className="text-xs text-slate-500 dark:text-slate-400 italic">
               * Identificamos {parsedData.length} linhas prontas para conversão.
             </p>
@@ -316,7 +343,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
               <input
                 type="checkbox"
                 checked={seekAddresses}
-                onChange={e => setSeekAddresses(e.target.checked)}
+                onChange={(e) => setSeekAddresses(e.target.checked)}
                 className="mt-0.5 accent-ibge-blue"
               />
               <span>
@@ -333,16 +360,21 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
                 <table className="w-full text-xs">
                   <thead className="bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300">
                     <tr>
-                      {headers.map(h => (
-                        <th key={h} className="px-2 py-1.5 text-left font-semibold whitespace-nowrap">{h}</th>
+                      {headers.map((h) => (
+                        <th key={h} className="px-2 py-1.5 text-left font-semibold whitespace-nowrap">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                     {parsedData.slice(0, 5).map((row, i) => (
                       <tr key={i}>
-                        {headers.map(h => (
-                          <td key={h} className="px-2 py-1 text-slate-600 dark:text-slate-300 whitespace-nowrap max-w-[200px] truncate">
+                        {headers.map((h) => (
+                          <td
+                            key={h}
+                            className="px-2 py-1 text-slate-600 dark:text-slate-300 whitespace-nowrap max-w-[200px] truncate"
+                          >
                             {String(row[h] ?? '')}
                           </td>
                         ))}
@@ -370,7 +402,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
               <span>{progress}%</span>
             </div>
             <div className="w-full bg-ibge-blue/10 dark:bg-ibge-blue/20 rounded-full h-2.5 overflow-hidden">
-              <div 
+              <div
                 className="bg-ibge-blue dark:bg-ibge-light-blue h-2.5 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${progress}%` }}
               />
@@ -404,7 +436,7 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
             Voltar
           </button>
         )}
-        
+
         <button
           onClick={step === 'upload' ? parseFile : processFile}
           disabled={loading || (step === 'upload' && !file) || (step === 'mapping' && parsedData.length === 0)}
@@ -412,8 +444,10 @@ export function BatchUpload({ onBatchResult }: { onBatchResult: (results: HgeoRe
         >
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
+          ) : step === 'upload' ? (
+            'Ler Arquivo'
           ) : (
-            step === 'upload' ? 'Ler Arquivo' : 'Processar Agora'
+            'Processar Agora'
           )}
         </button>
       </div>

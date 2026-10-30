@@ -12,17 +12,13 @@ export interface MeshResult {
   droppedTriangles: number;
 }
 
-export function triangulate(
-  points: ReadonlyArray<readonly [number, number]>,
-  bridgeFactor = 3
-): MeshResult {
+export function triangulate(points: ReadonlyArray<readonly [number, number]>, bridgeFactor = 3): MeshResult {
   if (points.length < 3) return { triangles: [], droppedTriangles: 0 };
 
   const del = Delaunator.from(points as unknown as number[][]);
   const raw = Array.from(del.triangles);
 
-  const dist = (i: number, j: number) =>
-    Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]);
+  const dist = (i: number, j: number) => Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]);
 
   // Limite baseado na distância mediana ao vizinho mais próximo: é a escala
   // local real dos dados. A mediana global das arestas falha quando a

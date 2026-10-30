@@ -14,10 +14,10 @@ export function downloadText(content: string, filename: string, type: string) {
 }
 
 export function exportCSV(points: HgeoResult[]) {
-  const hasH = points.some(p => p.h !== undefined);
+  const hasH = points.some((p) => p.h !== undefined);
   const header = hasH ? 'lat,lon,h,N,H' : 'lat,lon,fator_conversao';
   const csv = [header];
-  points.forEach(p => {
+  points.forEach((p) => {
     if (hasH) {
       csv.push(`${p.lat},${p.long},${p.h ?? ''},${p.fator_conversao},${p.H ?? ''}`);
     } else {
@@ -32,7 +32,9 @@ export function exportKML(points: HgeoResult[]) {
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>GeoAlt Export</name>
-    ${points.map((p, i) => `
+    ${points
+      .map(
+        (p, i) => `
     <Placemark>
       <name>Ponto ${i + 1}</name>
       <description>
@@ -43,7 +45,9 @@ export function exportKML(points: HgeoResult[]) {
       <Point>
         <coordinates>${p.long},${p.lat},${p.H !== undefined ? p.H : 0}</coordinates>
       </Point>
-    </Placemark>`).join('')}
+    </Placemark>`
+      )
+      .join('')}
   </Document>
 </kml>`;
   downloadText(kml, 'geoalt_export.kml', 'application/vnd.google-earth.kml+xml');
@@ -57,8 +61,8 @@ export function exportKML(points: HgeoResult[]) {
  */
 export function exportDXF(points: HgeoResult[]) {
   const parsed = points
-    .map(p => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long), point: p }))
-    .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+    .map((p) => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long), point: p }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
   if (parsed.length === 0) return;
 
   const centerLon = parsed.reduce((acc, p) => acc + p.lon, 0) / parsed.length;

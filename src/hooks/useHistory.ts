@@ -1,25 +1,36 @@
 import { useState, useEffect } from 'react';
 import { HgeoResult } from '../lib/api';
 
+const STORAGE_KEY = 'geoalt_history';
+const MAX_ITEMS = 10;
+
+function readStoredHistory(): HgeoResult[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as HgeoResult[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function useHistory() {
-  const [history, setHistory] = useState<HgeoResult[]>(() => {
-    try {
-      const saved = localStorage.getItem('geoalt_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [history, setHistory] = useState<HgeoResult[]>(readStoredHistory);
 
   useEffect(() => {
-    localStorage.setItem('geoalt_history', JSON.stringify(history));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    } catch {
+      // storage cheio/indisponível: histórico só fica em memória
+    }
   }, [history]);
 
   const addPoint = (point: HgeoResult) => {
-    setHistory(prev => {
-      // Remove duplicate if exists, then add to top
-      const filtered = prev.filter(p => p.lat !== point.lat || p.long !== point.long);
-      return [point, ...filtered].slice(0, 10);
+    setHistory((prev) => {
+      const exists = prev.some((p) => p.lat === point.lat && p.long === point.long);
+      const next = exists ? prev : [point, ...prev].slice(0, MAX_ITEMS);
+      return next;
     });
   };
 

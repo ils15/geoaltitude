@@ -16,7 +16,7 @@ export function CopyChip({ text, label = 'Copiar valor' }: { text: string; label
   return (
     <button
       type="button"
-      onClick={copy}
+      onClick={() => void copy()}
       aria-label={label}
       title={label}
       className="shrink-0 p-1 rounded-md text-slate-400 hover:text-ibge-blue dark:hover:text-ibge-light-blue hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

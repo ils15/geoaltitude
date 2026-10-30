@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, FeatureGroup, WMSTileLayer, GeoJSON, Polyline } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  LayersControl,
+  FeatureGroup,
+  WMSTileLayer,
+  GeoJSON,
+  Polyline,
+} from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import { HgeoResult } from '../lib/api';
 import { fetchRBMCStations, RBMCStation } from '../lib/rbmc';
@@ -25,7 +35,7 @@ const getAltitudeColor = (h?: number) => {
 const createCustomIcon = (h?: number, isSelected = false) => {
   const color = getAltitudeColor(h);
   const size = isSelected ? 36 : 30;
-  
+
   const svg = `
     <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 21C16 17.5 19 14.4183 19 11C19 7.13401 15.866 4 12 4C8.13401 4 5 7.13401 5 11C5 14.4183 8 17.5 12 21Z" fill="${color}" stroke="white" stroke-width="1.5"/>
@@ -56,7 +66,7 @@ const formatAreaM2 = (m2: number) => (m2 >= 10000 ? `${(m2 / 10000).toFixed(4)} 
 function measureLayer(layer: L.Layer): Omit<Measurement, 'id'> | null {
   if (layer instanceof L.Polygon) {
     const ring = layer.getLatLngs()[0] as L.LatLng[];
-    const pts = ring.map(ll => ({ lat: ll.lat, lon: ll.lng }));
+    const pts = ring.map((ll) => ({ lat: ll.lat, lon: ll.lng }));
     if (pts.length < 3) return null;
     return {
       label: `Área: ${formatAreaM2(polygonArea(pts))}`,
@@ -71,7 +81,7 @@ function measureLayer(layer: L.Layer): Omit<Measurement, 'id'> | null {
     };
   }
   if (layer instanceof L.Polyline) {
-    const pts = (layer.getLatLngs() as L.LatLng[]).map(ll => ({ lat: ll.lat, lon: ll.lng }));
+    const pts = (layer.getLatLngs() as L.LatLng[]).map((ll) => ({ lat: ll.lat, lon: ll.lng }));
     return { label: `Distância: ${formatDistance(polylineLength(pts))}` };
   }
   if (layer instanceof L.Marker) {
@@ -88,17 +98,23 @@ const rbmcIcon = new L.Icon({
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+  shadowSize: [41, 41],
 });
 
-export function MapPreview({ points, shapefileData }: { points: HgeoResult[], shapefileData?: any }) {
+export function MapPreview({
+  points,
+  shapefileData,
+}: {
+  points: HgeoResult[];
+  shapefileData?: GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[] | null;
+}) {
   const [rbmcStations, setRbmcStations] = useState<RBMCStation[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [connectPoints, setConnectPoints] = useState(false);
 
   // Coordenadas memoizadas para o zoom-to-layer (não refitar a cada render)
   const pointCoords = useMemo(
-    () => points.map(p => [parseFloat(p.lat), parseFloat(p.long)] as [number, number]),
+    () => points.map((p) => [parseFloat(p.lat), parseFloat(p.long)] as [number, number]),
     [points]
   );
 
@@ -106,17 +122,16 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
     const m = measureLayer(layer);
     if (!m) return;
     const id = L.stamp(layer);
-    setMeasurements(prev => [...prev.filter(x => x.id !== id), { id, ...m }]);
+    setMeasurements((prev) => [...prev.filter((x) => x.id !== id), { id, ...m }]);
   };
 
   useEffect(() => {
-    fetchRBMCStations().then(setRbmcStations);
+    void fetchRBMCStations().then(setRbmcStations);
   }, []);
 
   // Center map on Brazil or the first point
-  const center: [number, number] = points.length > 0 
-    ? [parseFloat(points[0].lat), parseFloat(points[0].long)]
-    : [-15.7801, -47.9292];
+  const center: [number, number] =
+    points.length > 0 ? [parseFloat(points[0].lat), parseFloat(points[0].long)] : [-15.7801, -47.9292];
 
   const zoom = points.length > 0 ? 10 : 4;
 
@@ -146,51 +161,50 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
             Camadas Disponíveis
           </span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1.5 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={connectPoints}
-              onChange={e => setConnectPoints(e.target.checked)}
+              onChange={(e) => setConnectPoints(e.target.checked)}
               className="accent-ibge-light-blue"
             />
             Ligar pontos
             {connectPoints && points.length > 1 && (
               <span className="font-mono text-ibge-blue dark:text-ibge-light-blue">
-                ≈ {(polylineLength(points.map(p => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long) }))) / 1000).toFixed(2)} km
+                ≈{' '}
+                {(
+                  polylineLength(points.map((p) => ({ lat: parseFloat(p.lat), lon: parseFloat(p.long) }))) / 1000
+                ).toFixed(2)}{' '}
+                km
               </span>
             )}
           </label>
           <button
-            onClick={() => exportCSV(points)} 
+            onClick={() => exportCSV(points)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-ibge-blue text-white rounded-md text-sm font-bold hover:bg-ibge-blue/90 transition-all cursor-pointer shadow-sm active:scale-95 shadow-ibge-blue/20"
           >
             <Download className="w-4 h-4" /> CSV
           </button>
-          <button 
-            onClick={() => exportKML(points)} 
+          <button
+            onClick={() => exportKML(points)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-ibge-blue/30 dark:border-ibge-blue/50 text-ibge-blue dark:text-ibge-light-blue rounded-md text-sm font-bold hover:bg-ibge-blue/5 dark:hover:bg-ibge-blue/10 transition-all cursor-pointer shadow-sm active:scale-95"
           >
             <Download className="w-4 h-4" /> KML
           </button>
-          <button 
-            onClick={() => exportDXF(points)} 
+          <button
+            onClick={() => exportDXF(points)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-ibge-gold/30 dark:border-ibge-gold/50 text-ibge-gold dark:text-ibge-gold rounded-md text-sm font-bold hover:bg-ibge-gold/5 dark:hover:bg-ibge-gold/10 transition-all cursor-pointer shadow-sm active:scale-95"
           >
             <Download className="w-4 h-4" /> DXF
           </button>
         </div>
       </div>
-      
+
       <div className="flex-1 relative z-0">
-          <MapContainer
-            center={center}
-            zoom={zoom}
-            style={{ height: '100%', width: '100%' }}
-            className="z-0"
-          >
-            <FitBoundsControl coords={pointCoords} maxZoom={13} />
+        <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} className="z-0">
+          <FitBoundsControl coords={pointCoords} maxZoom={13} />
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="OpenStreetMap">
               <TileLayer
@@ -198,10 +212,10 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
             </LayersControl.BaseLayer>
-            
+
             <LayersControl.BaseLayer name="Satélite (Esri)">
               <TileLayer
-                attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               />
             </LayersControl.BaseLayer>
@@ -226,22 +240,24 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
             <LayersControl.Overlay name="Estações RBMC (IBGE)" checked>
               <FeatureGroup>
                 {rbmcStations.map((station) => (
-                  <Marker 
-                    key={station.id} 
-                    position={[station.latitude, station.longitude]}
-                    icon={rbmcIcon}
-                  >
+                  <Marker key={station.id} position={[station.latitude, station.longitude]} icon={rbmcIcon}>
                     <Popup>
                       <div className="text-sm dark:text-slate-800 p-1">
                         <div className="flex items-center gap-2 mb-2 text-red-600">
                           <Radio className="w-4 h-4" />
                           <p className="font-bold">Estação RBMC: {station.sigla}</p>
                         </div>
-                        <p><strong>Nome:</strong> {station.nome}</p>
-                        <p><strong>Local:</strong> {station.municipio} - {station.uf}</p>
-                        <p><strong>Status:</strong> {station.situacao}</p>
+                        <p>
+                          <strong>Nome:</strong> {station.nome}
+                        </p>
+                        <p>
+                          <strong>Local:</strong> {station.municipio} - {station.uf}
+                        </p>
+                        <p>
+                          <strong>Status:</strong> {station.situacao}
+                        </p>
                         <div className="mt-3 pt-2 border-t border-slate-200">
-                          <a 
+                          <a
                             href={`https://www.ibge.gov.br/geociencias/informacoes-sobre-posicionamento-geodesico/rede-geodesica/16253-rbmc-rede-brasileira-de-monitoramento-continuo-dos-sistemas-gnss.html?&t=situacao-operacional-e-dados-diarios&id=${station.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -260,12 +276,12 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
 
             {shapefileData && (
               <LayersControl.Overlay name="Camada Shapefile" checked>
-                <GeoJSON 
-                  data={shapefileData} 
+                <GeoJSON
+                  data={Array.isArray(shapefileData) ? shapefileData[0] : shapefileData}
                   style={{
                     color: '#eab308', // ibge-gold
                     weight: 2,
-                    fillOpacity: 0.2
+                    fillOpacity: 0.2,
                   }}
                 />
               </LayersControl.Overlay>
@@ -274,7 +290,7 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
 
           {connectPoints && points.length > 1 && (
             <Polyline
-              positions={points.map(p => [parseFloat(p.lat), parseFloat(p.long)] as [number, number])}
+              positions={points.map((p) => [parseFloat(p.lat), parseFloat(p.long)] as [number, number])}
               pathOptions={{ color: '#00a1e4', weight: 2.5, dashArray: '6 8', opacity: 0.9 }}
             />
           )}
@@ -290,18 +306,20 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
                 marker: true,
                 polyline: true,
               }}
-              onCreated={(e: any) => upsertMeasurement(e.layer as L.Layer)}
-              onEdited={(e: any) => (e.layers as L.LayerGroup).eachLayer(layer => upsertMeasurement(layer))}
-              onDeleted={(e: any) => {
+              onCreated={(e: L.DrawEvents.Created) => upsertMeasurement(e.layer)}
+              onEdited={(e: L.DrawEvents.Edited) => e.layers.eachLayer((layer) => upsertMeasurement(layer))}
+              onDeleted={(e: L.DrawEvents.Deleted) => {
                 const removed: number[] = [];
-                (e.layers as L.LayerGroup).eachLayer(layer => removed.push(L.stamp(layer)));
-                setMeasurements(prev => prev.filter(m => !removed.includes(m.id)));
+                e.layers.eachLayer((layer) => removed.push(L.stamp(layer)));
+                setMeasurements((prev) => prev.filter((m) => !removed.includes(m.id)));
               }}
             />
           </FeatureGroup>
 
           {measurements.length > 0 && (
-            <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3 max-w-xs text-sm">              <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3 max-w-xs text-sm">
+              {' '}
+              <div className="flex items-center justify-between gap-4 mb-2">
                 <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Ruler className="w-4 h-4 text-ibge-blue" />
                   Medições do desenho
@@ -316,7 +334,7 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
                 </button>
               </div>
               <ul className="space-y-1.5">
-                {measurements.map(m => (
+                {measurements.map((m) => (
                   <li key={m.id} className="font-mono text-xs text-slate-700 dark:text-slate-300">
                     {m.label}
                     {m.detail && <span className="block text-slate-400 dark:text-slate-500">{m.detail}</span>}
@@ -331,7 +349,15 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
               Altitude ortométrica (H)
             </p>
             <div className="space-y-1">
-              {([['#3b82f6', '< 100 m'], ['#10b981', '100 – 500 m'], ['#f59e0b', '500 – 1.000 m'], ['#ef4444', '≥ 1.000 m'], ['#64748b', 'sem H']] as Array<[string, string]>).map(([color, label]) => (
+              {(
+                [
+                  ['#3b82f6', '< 100 m'],
+                  ['#10b981', '100 – 500 m'],
+                  ['#f59e0b', '500 – 1.000 m'],
+                  ['#ef4444', '≥ 1.000 m'],
+                  ['#64748b', 'sem H'],
+                ] as Array<[string, string]>
+              ).map(([color, label]) => (
                 <div key={label} className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} aria-hidden="true" />
                   {label}
@@ -340,26 +366,42 @@ export function MapPreview({ points, shapefileData }: { points: HgeoResult[], sh
             </div>
           </div>
 
-          <MarkerClusterGroup
-            chunkedLoading
-            maxClusterRadius={60}
-          >
+          <MarkerClusterGroup chunkedLoading maxClusterRadius={60}>
             {points.map((res, idx) => (
-              <Marker 
-                key={idx} 
-                position={[parseFloat(res.lat), parseFloat(res.long)]}
-                icon={createCustomIcon(res.H)}
-              >
+              <Marker key={idx} position={[parseFloat(res.lat), parseFloat(res.long)]} icon={createCustomIcon(res.H)}>
                 <Popup className="custom-popup">
                   <div className="text-sm dark:text-slate-800 p-1">
                     <p className="font-bold text-ibge-blue mb-1 border-b border-slate-100 pb-1">Ponto {idx + 1}</p>
                     <div className="space-y-1 mt-2">
-                      <p><strong className="text-slate-500">Lat:</strong> {res.lat}</p>
-                      <p><strong className="text-slate-500">Lon:</strong> {res.long}</p>
-                      {res.h !== undefined && <p><strong className="text-slate-500">Alt. Geométrica (h):</strong> {res.h.toFixed(3)}m</p>}
-                      <p><strong className="text-slate-500">Ondulação (N):</strong> <span className="text-ibge-blue font-medium">{res.fator_conversao}{typeof res.fator_conversao === 'number' ? 'm' : ''}</span></p>
-                      {res.H !== undefined && <p><strong className="text-slate-500">Alt. Ortométrica (H):</strong> <span className="text-ibge-green font-bold">{res.H.toFixed(3)}m</span></p>}
-                      {res.address && <p className="mt-2 pt-2 border-t border-slate-100 italic text-slate-600"><strong className="not-italic text-slate-500">Localização:</strong> {res.address}</p>}
+                      <p>
+                        <strong className="text-slate-500">Lat:</strong> {res.lat}
+                      </p>
+                      <p>
+                        <strong className="text-slate-500">Lon:</strong> {res.long}
+                      </p>
+                      {res.h !== undefined && (
+                        <p>
+                          <strong className="text-slate-500">Alt. Geométrica (h):</strong> {res.h.toFixed(3)}m
+                        </p>
+                      )}
+                      <p>
+                        <strong className="text-slate-500">Ondulação (N):</strong>{' '}
+                        <span className="text-ibge-blue font-medium">
+                          {res.fator_conversao}
+                          {typeof res.fator_conversao === 'number' ? 'm' : ''}
+                        </span>
+                      </p>
+                      {res.H !== undefined && (
+                        <p>
+                          <strong className="text-slate-500">Alt. Ortométrica (H):</strong>{' '}
+                          <span className="text-ibge-green font-bold">{res.H.toFixed(3)}m</span>
+                        </p>
+                      )}
+                      {res.address && (
+                        <p className="mt-2 pt-2 border-t border-slate-100 italic text-slate-600">
+                          <strong className="not-italic text-slate-500">Localização:</strong> {res.address}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </Popup>

@@ -4,7 +4,8 @@ import { forwardGeocode, reverseGeocode, Address, ForwardGeocodeResult } from '.
 import { isValidCoordinate, gmsToDec } from '../lib/validation';
 import { orthometricHeight, parseFatorConversao, decToDmsParts } from '../lib/geodesy';
 import { fetchUndulation } from '../lib/geoidModels';
-import { Loader2, MapPin, Calculator, Search } from 'lucide-react';
+import { Loader2, MapPin, Search } from 'lucide-react';
+import { errorMessage } from '../lib/errors';
 
 /** parseFloat tolerante à vírgula decimal (usuários brasileiros digitam "57,68"). */
 function num(text: string): number {
@@ -133,8 +134,8 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
       }
 
       onResult(result);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao converter coordenadas');
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -152,7 +153,9 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           type="button"
           onClick={() => setMode('dec')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            mode === 'dec' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            mode === 'dec'
+              ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Graus Decimais
@@ -161,7 +164,9 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           type="button"
           onClick={() => setMode('gms')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            mode === 'gms' ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            mode === 'gms'
+              ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Graus Sexagesimais
@@ -175,8 +180,13 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
             <input
               type="text"
               value={placeQuery}
-              onChange={e => setPlaceQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarEndereco(); } }}
+              onChange={(e) => setPlaceQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void buscarEndereco();
+                }
+              }}
               placeholder="Buscar endereço ou lugar (OpenStreetMap)"
               aria-label="Buscar endereço ou lugar"
               className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-ibge-blue focus:border-ibge-blue outline-none transition-all"
@@ -184,7 +194,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
           </div>
           <button
             type="button"
-            onClick={buscarEndereco}
+            onClick={() => void buscarEndereco()}
             disabled={placeSearching}
             className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-70 flex items-center justify-center gap-1.5 whitespace-nowrap"
           >
@@ -192,8 +202,8 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
             Buscar
           </button>
         </div>
-        {placeResults && (
-          placeResults.length === 0 ? (
+        {placeResults &&
+          (placeResults.length === 0 ? (
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Nenhum lugar encontrado.</p>
           ) : (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -209,11 +219,10 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
                 </button>
               ))}
             </div>
-          )
-        )}
+          ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         {mode === 'dec' ? (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -244,11 +253,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
             </div>
           </motion.div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Latitude</label>
               <div className="grid grid-cols-3 gap-2">
@@ -334,7 +339,7 @@ export function SinglePointForm({ onResult }: { onResult: (result: HgeoResult) =
             <input
               type="checkbox"
               checked={compareEgm}
-              onChange={e => setCompareEgm(e.target.checked)}
+              onChange={(e) => setCompareEgm(e.target.checked)}
               className="mt-0.5 accent-ibge-blue"
             />
             <span>

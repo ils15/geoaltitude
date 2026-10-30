@@ -17,8 +17,11 @@ export async function fetchTerrainElevation(lat: number, lon: number): Promise<T
   if (!response.ok) {
     throw new Error('Falha ao consultar o serviço de elevação aberto (Open-Meteo).');
   }
-  const data = await response.json();
-  const elevation = data?.elevation?.[0];
+  const data: unknown = await response.json();
+  const elevation =
+    typeof data === 'object' && data !== null && Array.isArray((data as { elevation?: unknown }).elevation)
+      ? (data as { elevation: unknown[] }).elevation[0]
+      : undefined;
   if (typeof elevation !== 'number') {
     throw new Error('Resposta inválida do serviço de elevação.');
   }

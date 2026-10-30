@@ -30,7 +30,7 @@ describe('Dados de demonstração (botão "Usar dados de exemplo")', () => {
   });
 
   it('cobre os extremos pedagógicos: h negativo no litoral e Pico da Neblina', () => {
-    const altitudes = DEMO_POINTS.map(p => p.altitude_elipsoidal);
+    const altitudes = DEMO_POINTS.map((p) => p.altitude_elipsoidal);
     expect(Math.min(...altitudes)).toBeLessThan(0);
     expect(Math.max(...altitudes)).toBeGreaterThan(2900);
   });

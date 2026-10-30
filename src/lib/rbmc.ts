@@ -13,21 +13,25 @@ export async function fetchRBMCStations(): Promise<RBMCStation[]> {
   try {
     const response = await fetch('https://servicodados.ibge.gov.br/api/v1/rbmc/estacoes');
     if (!response.ok) throw new Error('Failed to fetch RBMC stations');
-    
+
     // The API documentation says it returns a list of stations
-    const data = await response.json();
-    
-    // Map to our interface if needed, but usually it matches
-    return data.map((s: any) => ({
-      id: s.id,
-      nome: s.nome,
-      sigla: s.sigla,
-      situacao: s.situacao,
-      latitude: s.latitude,
-      longitude: s.longitude,
-      municipio: s.municipio,
-      uf: s.uf
-    }));
+    const data: unknown = await response.json();
+
+    if (!Array.isArray(data)) return [];
+    const str = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+    return data.map((s) => {
+      const st = s as Record<string, unknown>;
+      return {
+        id: Number(st.id),
+        nome: str(st.nome),
+        sigla: str(st.sigla),
+        situacao: str(st.situacao),
+        latitude: Number(st.latitude),
+        longitude: Number(st.longitude),
+        municipio: str(st.municipio),
+        uf: str(st.uf),
+      };
+    });
   } catch (error) {
     console.error('Error fetching RBMC stations:', error);
     return [];

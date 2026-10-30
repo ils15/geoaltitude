@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ArrowLeftRight,
-  Globe2,
-  Info,
-  Loader2,
-  Mountain,
-  MoveHorizontal,
-  Search,
-} from 'lucide-react';
+import { ArrowLeftRight, Globe2, Info, Loader2, Mountain, MoveHorizontal, Search } from 'lucide-react';
 import {
   DATUMS,
   DatumId,
@@ -29,6 +21,7 @@ import {
 import { GEOID_MODELS, GeoidModelId, fetchUndulation } from '../lib/geoidModels';
 import { fetchTerrainElevation } from '../lib/openServices';
 import { forwardGeocode, ForwardGeocodeResult } from '../lib/geocoding';
+import { errorMessage } from '../lib/errors';
 import { CopyChip } from './CopyChip';
 
 const inputClass =
@@ -48,8 +41,8 @@ function parseCoordinateInput(text: string): { value?: number; error?: string } 
   if (!text.trim()) return { error: 'Informe a coordenada (dec. ou GMS, ex.: -23.5505 ou "23° 33\' 1.8" S")' };
   try {
     return { value: parseDmsString(text) };
-  } catch (err: any) {
-    return { error: err.message };
+  } catch (err) {
+    return { error: errorMessage(err) };
   }
 }
 
@@ -74,7 +67,9 @@ function ResultRow({
     <div className="flex items-start justify-between gap-3 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
       <span className="text-xs text-slate-500 dark:text-slate-400 pt-0.5 shrink-0">{label}</span>
       <span className="flex items-center gap-1.5 min-w-0">
-        <span className={`text-sm font-semibold text-slate-900 dark:text-white text-right break-all ${mono ? 'font-mono' : ''}`}>
+        <span
+          className={`text-sm font-semibold text-slate-900 dark:text-white text-right break-all ${mono ? 'font-mono' : ''}`}
+        >
           {value}
         </span>
         {copyText && <CopyChip text={copyText} label={`Copiar ${label.toLowerCase()}`} />}
@@ -105,11 +100,15 @@ function CoordinatesSection() {
     latParsed.value !== undefined && lonParsed.value !== undefined
       ? (() => {
           try {
-            const utm = geographicToUTM(latParsed.value, lonParsed.value);
-            const ecef = geodeticToEcef(latParsed.value, lonParsed.value);
-            return { lat: latParsed.value, lon: lonParsed.value, utm, ecef, error: null as string | null };
-          } catch (err: any) {
-            return { lat: latParsed.value, lon: lonParsed.value, utm: null, ecef: null, error: err.message as string };
+            return {
+              ok: true as const,
+              lat: latParsed.value,
+              lon: lonParsed.value,
+              utm: geographicToUTM(latParsed.value, lonParsed.value),
+              ecef: geodeticToEcef(latParsed.value, lonParsed.value),
+            };
+          } catch (err) {
+            return { ok: false as const, error: errorMessage(err) };
           }
         })()
       : null;
@@ -120,15 +119,16 @@ function CoordinatesSection() {
   const [eastingText, setEastingText] = useState('333287.92');
   const [northingText, setNorthingText] = useState('7394588.32');
   const zone = parseInt(zoneText, 10);
-  const utmResult = (() => {
-    if (!Number.isInteger(zone) || zone < 1 || zone > 60) return { error: 'Fuso deve estar entre 1 e 60.' };
+  const utmResult: { ok: true; lat: number; lon: number } | { ok: false; error: string } = (() => {
+    if (!Number.isInteger(zone) || zone < 1 || zone > 60) return { ok: false, error: 'Fuso deve estar entre 1 e 60.' };
     const easting = parseNum(eastingText);
     const northing = parseNum(northingText);
-    if (easting === null || northing === null) return { error: 'Informe Easting e Northing em metros.' };
+    if (easting === null || northing === null) return { ok: false, error: 'Informe Easting e Northing em metros.' };
     try {
-      return { geo: utmToGeographic({ zone, hemisphere: hemi, easting, northing }), error: null as string | null };
-    } catch (err: any) {
-      return { error: err.message as string };
+      const geo = utmToGeographic({ zone, hemisphere: hemi, easting, northing });
+      return { ok: true, lat: geo.lat, lon: geo.lon };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
     }
   })();
 
@@ -136,15 +136,16 @@ function CoordinatesSection() {
   const [xText, setXText] = useState('4017003.1235');
   const [yText, setYText] = useState('-4252810.1233');
   const [zText, setZText] = useState('-2532724.1772');
-  const ecefResult = (() => {
+  const ecefResult: { ok: true; lat: number; lon: number; h: number } | { ok: false; error: string } = (() => {
     const x = parseNum(xText);
     const y = parseNum(yText);
     const z = parseNum(zText);
-    if (x === null || y === null || z === null) return { error: 'Informe X, Y e Z em metros.' };
+    if (x === null || y === null || z === null) return { ok: false, error: 'Informe X, Y e Z em metros.' };
     try {
-      return { geo: ecefToGeodeticCoords(x, y, z), error: null as string | null };
-    } catch (err: any) {
-      return { error: err.message as string };
+      const geo = ecefToGeodeticCoords(x, y, z);
+      return { ok: true, lat: geo.lat, lon: geo.lon, h: geo.h };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
     }
   })();
 
@@ -154,7 +155,9 @@ function CoordinatesSection() {
       onClick={() => setMode(id)}
       aria-pressed={mode === id}
       className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
-        mode === id ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+        mode === id
+          ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-sm'
+          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
       }`}
     >
       {label}
@@ -168,7 +171,11 @@ function CoordinatesSection() {
           <Globe2 className="w-5 h-5 text-ibge-blue" />
           Coordenadas ↔ UTM ↔ ECEF
         </h3>
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex-wrap" role="group" aria-label="Modo de conversão de coordenadas">
+        <div
+          className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex-wrap"
+          role="group"
+          aria-label="Modo de conversão de coordenadas"
+        >
           {modeButton('geo2utm', 'Geográficas → UTM')}
           {modeButton('utm2geo', 'UTM → Geográficas')}
           {modeButton('ecef', 'ECEF → Geográficas')}
@@ -179,19 +186,37 @@ function CoordinatesSection() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass} htmlFor="conv-lat">Latitude</label>
-              <input id="conv-lat" type="text" value={latText} onChange={e => setLatText(e.target.value)} className={inputClass} placeholder={'-23.5505 ou "23° 33\' 1.8" S"'} />
+              <label className={labelClass} htmlFor="conv-lat">
+                Latitude
+              </label>
+              <input
+                id="conv-lat"
+                type="text"
+                value={latText}
+                onChange={(e) => setLatText(e.target.value)}
+                className={inputClass}
+                placeholder={'-23.5505 ou "23° 33\' 1.8" S"'}
+              />
               {latParsed.error && <ErrorNote message={latParsed.error} />}
             </div>
             <div>
-              <label className={labelClass} htmlFor="conv-lon">Longitude</label>
-              <input id="conv-lon" type="text" value={lonText} onChange={e => setLonText(e.target.value)} className={inputClass} placeholder={'-46.6333 ou "46° 37\' 59" O"'} />
+              <label className={labelClass} htmlFor="conv-lon">
+                Longitude
+              </label>
+              <input
+                id="conv-lon"
+                type="text"
+                value={lonText}
+                onChange={(e) => setLonText(e.target.value)}
+                className={inputClass}
+                placeholder={'-46.6333 ou "46° 37\' 59" O"'}
+              />
               {lonParsed.error && <ErrorNote message={lonParsed.error} />}
             </div>
           </div>
           <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
             {geoResult ? (
-              geoResult.error ? (
+              !geoResult.ok ? (
                 <ErrorNote message={geoResult.error} />
               ) : (
                 <>
@@ -207,17 +232,17 @@ function CoordinatesSection() {
                   />
                   <ResultRow
                     label="UTM (WGS84 ≈ SIRGAS2000)"
-                    value={formatUTM(geoResult.utm!, 3)}
-                    copyText={formatUTM(geoResult.utm!, 3)}
+                    value={formatUTM(geoResult.utm, 3)}
+                    copyText={formatUTM(geoResult.utm, 3)}
                   />
                   <ResultRow
                     label="Fuso / Meridiano central"
-                    value={`${geoResult.utm!.zone}${geoResult.utm!.hemisphere} · MC ${utmZoneCentralMeridian(geoResult.utm!.zone)}°`}
+                    value={`${geoResult.utm.zone}${geoResult.utm.hemisphere} · MC ${utmZoneCentralMeridian(geoResult.utm.zone)}°`}
                   />
                   <ResultRow
                     label="ECEF (XYZ geocêntrico)"
-                    value={`X ${geoResult.ecef!.x.toFixed(3)} · Y ${geoResult.ecef!.y.toFixed(3)} · Z ${geoResult.ecef!.z.toFixed(3)} (m)`}
-                    copyText={`${geoResult.ecef!.x.toFixed(3)}, ${geoResult.ecef!.y.toFixed(3)}, ${geoResult.ecef!.z.toFixed(3)}`}
+                    value={`X ${geoResult.ecef.x.toFixed(3)} · Y ${geoResult.ecef.y.toFixed(3)} · Z ${geoResult.ecef.z.toFixed(3)} (m)`}
+                    copyText={`${geoResult.ecef.x.toFixed(3)}, ${geoResult.ecef.y.toFixed(3)}, ${geoResult.ecef.z.toFixed(3)}`}
                   />
                 </>
               )
@@ -232,41 +257,82 @@ function CoordinatesSection() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <label className={labelClass} htmlFor="conv-zone">Fuso</label>
-              <input id="conv-zone" type="number" min={1} max={60} value={zoneText} onChange={e => setZoneText(e.target.value)} className={inputClass} />
+              <label className={labelClass} htmlFor="conv-zone">
+                Fuso
+              </label>
+              <input
+                id="conv-zone"
+                type="number"
+                min={1}
+                max={60}
+                value={zoneText}
+                onChange={(e) => setZoneText(e.target.value)}
+                className={inputClass}
+              />
             </div>
             <div>
-              <label className={labelClass} htmlFor="conv-hemi">Hemisfério</label>
-              <select id="conv-hemi" value={hemi} onChange={e => setHemi(e.target.value as 'S' | 'N')} className={inputClass}>
+              <label className={labelClass} htmlFor="conv-hemi">
+                Hemisfério
+              </label>
+              <select
+                id="conv-hemi"
+                value={hemi}
+                onChange={(e) => setHemi(e.target.value as 'S' | 'N')}
+                className={inputClass}
+              >
                 <option value="S">S (Sul)</option>
                 <option value="N">N (Norte)</option>
               </select>
             </div>
             <div>
-              <label className={labelClass} htmlFor="conv-e">Easting (m)</label>
-              <input id="conv-e" type="text" value={eastingText} onChange={e => setEastingText(e.target.value)} className={inputClass} />
+              <label className={labelClass} htmlFor="conv-e">
+                Easting (m)
+              </label>
+              <input
+                id="conv-e"
+                type="text"
+                value={eastingText}
+                onChange={(e) => setEastingText(e.target.value)}
+                className={inputClass}
+              />
             </div>
             <div>
-              <label className={labelClass} htmlFor="conv-n">Northing (m)</label>
-              <input id="conv-n" type="text" value={northingText} onChange={e => setNorthingText(e.target.value)} className={inputClass} />
+              <label className={labelClass} htmlFor="conv-n">
+                Northing (m)
+              </label>
+              <input
+                id="conv-n"
+                type="text"
+                value={northingText}
+                onChange={(e) => setNorthingText(e.target.value)}
+                className={inputClass}
+              />
             </div>
           </div>
           <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-            {utmResult.error ? (
+            {!utmResult.ok ? (
               <ErrorNote message={utmResult.error} />
             ) : (
               <>
-                <ResultRow label="Latitude" value={`${utmResult.geo!.lat.toFixed(7)}°`} copyText={utmResult.geo!.lat.toFixed(7)} />
-                <ResultRow label="Longitude" value={`${utmResult.geo!.lon.toFixed(7)}°`} copyText={utmResult.geo!.lon.toFixed(7)} />
+                <ResultRow
+                  label="Latitude"
+                  value={`${utmResult.lat.toFixed(7)}°`}
+                  copyText={utmResult.lat.toFixed(7)}
+                />
+                <ResultRow
+                  label="Longitude"
+                  value={`${utmResult.lon.toFixed(7)}°`}
+                  copyText={utmResult.lon.toFixed(7)}
+                />
                 <ResultRow
                   label="GMS"
-                  value={`${decToDms(utmResult.geo!.lat, true)} / ${decToDms(utmResult.geo!.lon, false)}`}
-                  copyText={`${decToDms(utmResult.geo!.lat, true)} / ${decToDms(utmResult.geo!.lon, false)}`}
+                  value={`${decToDms(utmResult.lat, true)} / ${decToDms(utmResult.lon, false)}`}
+                  copyText={`${decToDms(utmResult.lat, true)} / ${decToDms(utmResult.lon, false)}`}
                 />
                 <ResultRow
                   label="Decimais (par)"
-                  value={`${utmResult.geo!.lat.toFixed(7)}, ${utmResult.geo!.lon.toFixed(7)}`}
-                  copyText={`${utmResult.geo!.lat.toFixed(7)}, ${utmResult.geo!.lon.toFixed(7)}`}
+                  value={`${utmResult.lat.toFixed(7)}, ${utmResult.lon.toFixed(7)}`}
+                  copyText={`${utmResult.lat.toFixed(7)}, ${utmResult.lon.toFixed(7)}`}
                 />
               </>
             )}
@@ -278,36 +344,72 @@ function CoordinatesSection() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className={labelClass} htmlFor="conv-ecef-x">X (m)</label>
-              <input id="conv-ecef-x" type="text" value={xText} onChange={e => setXText(e.target.value)} className={inputClass} />
+              <label className={labelClass} htmlFor="conv-ecef-x">
+                X (m)
+              </label>
+              <input
+                id="conv-ecef-x"
+                type="text"
+                value={xText}
+                onChange={(e) => setXText(e.target.value)}
+                className={inputClass}
+              />
             </div>
             <div>
-              <label className={labelClass} htmlFor="conv-ecef-y">Y (m)</label>
-              <input id="conv-ecef-y" type="text" value={yText} onChange={e => setYText(e.target.value)} className={inputClass} />
+              <label className={labelClass} htmlFor="conv-ecef-y">
+                Y (m)
+              </label>
+              <input
+                id="conv-ecef-y"
+                type="text"
+                value={yText}
+                onChange={(e) => setYText(e.target.value)}
+                className={inputClass}
+              />
             </div>
             <div>
-              <label className={labelClass} htmlFor="conv-ecef-z">Z (m)</label>
-              <input id="conv-ecef-z" type="text" value={zText} onChange={e => setZText(e.target.value)} className={inputClass} />
+              <label className={labelClass} htmlFor="conv-ecef-z">
+                Z (m)
+              </label>
+              <input
+                id="conv-ecef-z"
+                type="text"
+                value={zText}
+                onChange={(e) => setZText(e.target.value)}
+                className={inputClass}
+              />
             </div>
           </div>
           <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-            {ecefResult.error ? (
+            {!ecefResult.ok ? (
               <ErrorNote message={ecefResult.error} />
             ) : (
               <>
-                <ResultRow label="Latitude" value={`${ecefResult.geo!.lat.toFixed(7)}°`} copyText={ecefResult.geo!.lat.toFixed(7)} />
-                <ResultRow label="Longitude" value={`${ecefResult.geo!.lon.toFixed(7)}°`} copyText={ecefResult.geo!.lon.toFixed(7)} />
+                <ResultRow
+                  label="Latitude"
+                  value={`${ecefResult.lat.toFixed(7)}°`}
+                  copyText={ecefResult.lat.toFixed(7)}
+                />
+                <ResultRow
+                  label="Longitude"
+                  value={`${ecefResult.lon.toFixed(7)}°`}
+                  copyText={ecefResult.lon.toFixed(7)}
+                />
                 <ResultRow
                   label="GMS"
-                  value={`${decToDms(ecefResult.geo!.lat, true)} / ${decToDms(ecefResult.geo!.lon, false)}`}
-                  copyText={`${decToDms(ecefResult.geo!.lat, true)} / ${decToDms(ecefResult.geo!.lon, false)}`}
+                  value={`${decToDms(ecefResult.lat, true)} / ${decToDms(ecefResult.lon, false)}`}
+                  copyText={`${decToDms(ecefResult.lat, true)} / ${decToDms(ecefResult.lon, false)}`}
                 />
                 <ResultRow
                   label="UTM (WGS84 ≈ SIRGAS2000)"
-                  value={formatUTM(geographicToUTM(ecefResult.geo!.lat, ecefResult.geo!.lon), 3)}
-                  copyText={formatUTM(geographicToUTM(ecefResult.geo!.lat, ecefResult.geo!.lon), 3)}
+                  value={formatUTM(geographicToUTM(ecefResult.lat, ecefResult.lon), 3)}
+                  copyText={formatUTM(geographicToUTM(ecefResult.lat, ecefResult.lon), 3)}
                 />
-                <ResultRow label="Altitude elipsoidal (h)" value={`${ecefResult.geo!.h.toFixed(3)} m`} copyText={ecefResult.geo!.h.toFixed(3)} />
+                <ResultRow
+                  label="Altitude elipsoidal (h)"
+                  value={`${ecefResult.h.toFixed(3)} m`}
+                  copyText={ecefResult.h.toFixed(3)}
+                />
               </>
             )}
           </div>
@@ -326,12 +428,20 @@ function AltimetrySection() {
 
   const [lookupLat, setLookupLat] = useState('-23.5505');
   const [lookupLon, setLookupLon] = useState('-46.6333');
-  const [lookup, setLookup] = useState<{ loading: boolean; error?: string; modelo?: string; fonte?: string; incerteza?: number | null }>({ loading: false });
+  const [lookup, setLookup] = useState<{
+    loading: boolean;
+    error?: string;
+    modelo?: string;
+    fonte?: string;
+    incerteza?: number | null;
+  }>({ loading: false });
   const [modelId, setModelId] = useState<GeoidModelId>('HGEOHNOR');
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeResults, setPlaceResults] = useState<ForwardGeocodeResult[] | null>(null);
   const [placeSearching, setPlaceSearching] = useState(false);
-  const [dem, setDem] = useState<{ loading: boolean; error?: string; elevation?: number; model?: string }>({ loading: false });
+  const [dem, setDem] = useState<{ loading: boolean; error?: string; elevation?: number; model?: string }>({
+    loading: false,
+  });
 
   const h = parseNum(hText);
   const H = parseNum(hOrtoText);
@@ -353,8 +463,8 @@ function AltimetrySection() {
       const s = await fetchUndulation(modelId, lat, lon);
       setNText(String(s.N));
       setLookup({ loading: false, modelo: s.modelo, fonte: s.fonte, incerteza: s.incerteza });
-    } catch (err: any) {
-      setLookup({ loading: false, error: err.message || 'Falha ao consultar o modelo geoidal.' });
+    } catch (err) {
+      setLookup({ loading: false, error: errorMessage(err) });
     }
   };
 
@@ -380,8 +490,8 @@ function AltimetrySection() {
       const lon = parseDmsString(lookupLon);
       const r = await fetchTerrainElevation(lat, lon);
       setDem({ loading: false, elevation: r.elevation, model: r.model });
-    } catch (err: any) {
-      setDem({ loading: false, error: err.message || 'Falha ao consultar o DEM aberto.' });
+    } catch (err) {
+      setDem({ loading: false, error: errorMessage(err) });
     }
   };
 
@@ -394,21 +504,48 @@ function AltimetrySection() {
           Calculadora h ↔ H ↔ N
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-          Informe dois valores e o terceiro é calculado: H = h − N. No Brasil N é negativo (geóide abaixo do
-          elipsoide) — mas não no Sul, onde N é positivo.
+          Informe dois valores e o terceiro é calculado: H = h − N. No Brasil N é negativo (geóide abaixo do elipsoide)
+          — mas não no Sul, onde N é positivo.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className={labelClass} htmlFor="conv-h">Altitude elipsoidal (h)</label>
-            <input id="conv-h" type="text" value={hText} onChange={e => setHText(e.target.value)} className={inputClass} placeholder="ex.: 850.123" />
+            <label className={labelClass} htmlFor="conv-h">
+              Altitude elipsoidal (h)
+            </label>
+            <input
+              id="conv-h"
+              type="text"
+              value={hText}
+              onChange={(e) => setHText(e.target.value)}
+              className={inputClass}
+              placeholder="ex.: 850.123"
+            />
           </div>
           <div>
-            <label className={labelClass} htmlFor="conv-n">Ondulação geoidal (N)</label>
-            <input id="conv-n" type="text" value={NText} onChange={e => setNText(e.target.value)} className={inputClass} placeholder="ex.: -19.456" />
+            <label className={labelClass} htmlFor="conv-n">
+              Ondulação geoidal (N)
+            </label>
+            <input
+              id="conv-n"
+              type="text"
+              value={NText}
+              onChange={(e) => setNText(e.target.value)}
+              className={inputClass}
+              placeholder="ex.: -19.456"
+            />
           </div>
           <div>
-            <label className={labelClass} htmlFor="conv-H">Altitude ortométrica (H)</label>
-            <input id="conv-H" type="text" value={hOrtoText} onChange={e => setHOrtoText(e.target.value)} className={inputClass} placeholder="ex.: 869.579" />
+            <label className={labelClass} htmlFor="conv-H">
+              Altitude ortométrica (H)
+            </label>
+            <input
+              id="conv-H"
+              type="text"
+              value={hOrtoText}
+              onChange={(e) => setHOrtoText(e.target.value)}
+              className={inputClass}
+              placeholder="ex.: 869.579"
+            />
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -437,9 +574,15 @@ function AltimetrySection() {
         {(Hcalc !== null || hCalc !== null) && (
           <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            {Hcalc !== null && H === null && `H = h − N = ${h!.toFixed(3)} − (${N!.toFixed(3)}) = ${Hcalc.toFixed(3)} m`}
-            {Hcalc !== null && H === null && hCalc !== null && ' · '}
-            {hCalc !== null && h === null && `h = H + N = ${H!.toFixed(3)} + (${N!.toFixed(3)}) = ${hCalc.toFixed(3)} m`}
+            {Hcalc !== null &&
+              h !== null &&
+              N !== null &&
+              `H = h − N = ${h.toFixed(3)} − (${N.toFixed(3)}) = ${Hcalc.toFixed(3)} m`}
+            {Hcalc !== null && hCalc !== null && ' · '}
+            {hCalc !== null &&
+              H !== null &&
+              N !== null &&
+              `h = H + N = ${H.toFixed(3)} + (${N.toFixed(3)}) = ${hCalc.toFixed(3)} m`}
           </p>
         )}
       </div>
@@ -457,27 +600,56 @@ function AltimetrySection() {
 
         <div className="space-y-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">1 · Ondulação geoidal (N)</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">
+              1 · Ondulação geoidal (N)
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_auto] gap-3 items-end">
               <div>
-                <label className={labelClass} htmlFor="conv-geoid-model">Modelo</label>
-                <select id="conv-geoid-model" value={modelId} onChange={e => setModelId(e.target.value as GeoidModelId)} className={inputClass}>
-                  {GEOID_MODELS.map(m => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
+                <label className={labelClass} htmlFor="conv-geoid-model">
+                  Modelo
+                </label>
+                <select
+                  id="conv-geoid-model"
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value as GeoidModelId)}
+                  className={inputClass}
+                >
+                  {GEOID_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className={labelClass} htmlFor="conv-geo-lat">Latitude</label>
-                <input id="conv-geo-lat" type="text" value={lookupLat} onChange={e => setLookupLat(e.target.value)} className={inputClass} placeholder="-23.5505" />
+                <label className={labelClass} htmlFor="conv-geo-lat">
+                  Latitude
+                </label>
+                <input
+                  id="conv-geo-lat"
+                  type="text"
+                  value={lookupLat}
+                  onChange={(e) => setLookupLat(e.target.value)}
+                  className={inputClass}
+                  placeholder="-23.5505"
+                />
               </div>
               <div>
-                <label className={labelClass} htmlFor="conv-geo-lon">Longitude</label>
-                <input id="conv-geo-lon" type="text" value={lookupLon} onChange={e => setLookupLon(e.target.value)} className={inputClass} placeholder="-46.6333" />
+                <label className={labelClass} htmlFor="conv-geo-lon">
+                  Longitude
+                </label>
+                <input
+                  id="conv-geo-lon"
+                  type="text"
+                  value={lookupLon}
+                  onChange={(e) => setLookupLon(e.target.value)}
+                  className={inputClass}
+                  placeholder="-46.6333"
+                />
               </div>
               <button
                 type="button"
-                onClick={consultarN}
+                onClick={() => void consultarN()}
                 disabled={lookup.loading}
                 className="px-4 py-2 bg-ibge-blue hover:bg-ibge-blue/90 text-white font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
               >
@@ -488,31 +660,46 @@ function AltimetrySection() {
             {lookup.error && <ErrorNote message={lookup.error} />}
             {lookup.modelo && (
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                N preenchido na calculadora · <span className="font-mono font-semibold">{lookup.modelo}</span> · fonte: {lookup.fonte}
-                {lookup.incerteza !== null && lookup.incerteza !== undefined && <> · Incerteza: ±{lookup.incerteza.toFixed(2)} m</>}
-                {' '}· {modelId === 'HGEOHNOR' ? 'H referida ao RN2015 (Imbituba), realização REALT-2018.' : 'MSL do EGM96 (mesma referência de arquivos KML).'}
+                N preenchido na calculadora · <span className="font-mono font-semibold">{lookup.modelo}</span> · fonte:{' '}
+                {lookup.fonte}
+                {lookup.incerteza !== null && lookup.incerteza !== undefined && (
+                  <> · Incerteza: ±{lookup.incerteza.toFixed(2)} m</>
+                )}{' '}
+                ·{' '}
+                {modelId === 'HGEOHNOR'
+                  ? 'H referida ao RN2015 (Imbituba), realização REALT-2018.'
+                  : 'MSL do EGM96 (mesma referência de arquivos KML).'}
               </p>
             )}
           </div>
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">2 · Encontrar o lugar</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">
+              2 · Encontrar o lugar
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
               <div>
-                <label className={labelClass} htmlFor="conv-place">Buscar lugar (OpenStreetMap)</label>
+                <label className={labelClass} htmlFor="conv-place">
+                  Buscar lugar (OpenStreetMap)
+                </label>
                 <input
                   id="conv-place"
                   type="text"
                   value={placeQuery}
-                  onChange={e => setPlaceQuery(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarLugar(); } }}
+                  onChange={(e) => setPlaceQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void buscarLugar();
+                    }
+                  }}
                   className={inputClass}
                   placeholder="ex.: Praça da Sé, São Paulo"
                 />
               </div>
               <button
                 type="button"
-                onClick={buscarLugar}
+                onClick={() => void buscarLugar()}
                 disabled={placeSearching}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2 whitespace-nowrap"
               >
@@ -520,8 +707,8 @@ function AltimetrySection() {
                 Buscar
               </button>
             </div>
-            {placeResults && (
-              placeResults.length === 0 ? (
+            {placeResults &&
+              (placeResults.length === 0 ? (
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Nenhum lugar encontrado.</p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -537,16 +724,17 @@ function AltimetrySection() {
                     </button>
                   ))}
                 </div>
-              )
-            )}
+              ))}
           </div>
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">3 · Terreno (DEM aberto)</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">
+              3 · Terreno (DEM aberto)
+            </p>
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 type="button"
-                onClick={consultarDem}
+                onClick={() => void consultarDem()}
                 disabled={dem.loading}
                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors disabled:opacity-70 flex items-center gap-2 whitespace-nowrap"
               >
@@ -596,8 +784,8 @@ function DatumSection() {
   if (latParsed.value !== undefined && lonParsed.value !== undefined) {
     try {
       result = transformDatum(latParsed.value, lonParsed.value, fromDatum, toDatum);
-    } catch (err: any) {
-      error = err.message;
+    } catch (err) {
+      error = errorMessage(err);
     }
   }
   const displacement =
@@ -613,47 +801,89 @@ function DatumSection() {
       </h3>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
         Helmert de 3 parâmetros. SAD69(96)→SIRGAS2000 usa os parâmetros oficiais do IBGE (EPSG:15485, acurácia ~5 m);
-        SAD69 clássico usa o registro histórico EPSG (−57, +1, −41, ~10 m); WGS84 ≈ SIRGAS2000 (equivalentes a poucos cm).
+        SAD69 clássico usa o registro histórico EPSG (−57, +1, −41, ~10 m); WGS84 ≈ SIRGAS2000 (equivalentes a poucos
+        cm).
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
-          <label className={labelClass} htmlFor="conv-datum-from">De</label>
-          <select id="conv-datum-from" value={fromDatum} onChange={e => setFromDatum(e.target.value as DatumId)} className={inputClass}>
-            {Object.values(DATUMS).map(d => (
-              <option key={d.id} value={d.id}>{d.label}</option>
+          <label className={labelClass} htmlFor="conv-datum-from">
+            De
+          </label>
+          <select
+            id="conv-datum-from"
+            value={fromDatum}
+            onChange={(e) => setFromDatum(e.target.value as DatumId)}
+            className={inputClass}
+          >
+            {Object.values(DATUMS).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.label}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className={labelClass} htmlFor="conv-datum-to">Para</label>
-          <select id="conv-datum-to" value={toDatum} onChange={e => setToDatum(e.target.value as DatumId)} className={inputClass}>
-            {Object.values(DATUMS).map(d => (
-              <option key={d.id} value={d.id}>{d.label}</option>
+          <label className={labelClass} htmlFor="conv-datum-to">
+            Para
+          </label>
+          <select
+            id="conv-datum-to"
+            value={toDatum}
+            onChange={(e) => setToDatum(e.target.value as DatumId)}
+            className={inputClass}
+          >
+            {Object.values(DATUMS).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.label}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className={labelClass} htmlFor="conv-datum-lat">Latitude</label>
-          <input id="conv-datum-lat" type="text" value={latText} onChange={e => setLatText(e.target.value)} className={inputClass} />
+          <label className={labelClass} htmlFor="conv-datum-lat">
+            Latitude
+          </label>
+          <input
+            id="conv-datum-lat"
+            type="text"
+            value={latText}
+            onChange={(e) => setLatText(e.target.value)}
+            className={inputClass}
+          />
         </div>
         <div>
-          <label className={labelClass} htmlFor="conv-datum-lon">Longitude</label>
-          <input id="conv-datum-lon" type="text" value={lonText} onChange={e => setLonText(e.target.value)} className={inputClass} />
+          <label className={labelClass} htmlFor="conv-datum-lon">
+            Longitude
+          </label>
+          <input
+            id="conv-datum-lon"
+            type="text"
+            value={lonText}
+            onChange={(e) => setLonText(e.target.value)}
+            className={inputClass}
+          />
         </div>
       </div>
       {(latParsed.error || lonParsed.error || error) && (
-        <ErrorNote message={(latParsed.error || lonParsed.error || error)!} />
+        <ErrorNote message={latParsed.error || lonParsed.error || error || 'Erro na transformação.'} />
       )}
       <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
         {result ? (
           <>
             <ResultRow
               label={`${DATUMS[fromDatum].label} → ${DATUMS[toDatum].label}`}
-              value={fromDatum === toDatum ? 'Datums iguais — sem transformação' : `${result.lat.toFixed(7)}°, ${result.lon.toFixed(7)}°`}
+              value={
+                fromDatum === toDatum
+                  ? 'Datums iguais — sem transformação'
+                  : `${result.lat.toFixed(7)}°, ${result.lon.toFixed(7)}°`
+              }
               copyText={fromDatum === toDatum ? undefined : `${result.lat.toFixed(7)}, ${result.lon.toFixed(7)}`}
             />
             {fromDatum !== toDatum && (
-              <ResultRow label="Deslocamento em superfície" value={displacement !== null ? `≈ ${displacement.toFixed(2)} m` : '—'} />
+              <ResultRow
+                label="Deslocamento em superfície"
+                value={displacement !== null ? `≈ ${displacement.toFixed(2)} m` : '—'}
+              />
             )}
             {fromDatum !== toDatum && (
               <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{DATUMS[toDatum].note}</p>
@@ -684,8 +914,8 @@ function DistanceSection() {
     aLat.value !== undefined && aLon.value !== undefined && bLat.value !== undefined && bLon.value !== undefined;
   const distance = ready
     ? haversineDistance(
-        { lat: aLat.value!, lon: aLon.value! },
-        { lat: bLat.value!, lon: bLon.value! }
+        { lat: aLat.value as number, lon: aLon.value as number },
+        { lat: bLat.value as number, lon: bLon.value as number }
       )
     : null;
   const distanceText =
@@ -723,19 +953,54 @@ function DistanceSection() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Ponto A</p>
-          <input type="text" value={aLatText} onChange={e => setALatText(e.target.value)} className={inputClass} aria-label="Latitude do ponto A" placeholder="Latitude A" />
-          <input type="text" value={aLonText} onChange={e => setALonText(e.target.value)} className={inputClass} aria-label="Longitude do ponto A" placeholder="Longitude A" />
+          <input
+            type="text"
+            value={aLatText}
+            onChange={(e) => setALatText(e.target.value)}
+            className={inputClass}
+            aria-label="Latitude do ponto A"
+            placeholder="Latitude A"
+          />
+          <input
+            type="text"
+            value={aLonText}
+            onChange={(e) => setALonText(e.target.value)}
+            className={inputClass}
+            aria-label="Longitude do ponto A"
+            placeholder="Longitude A"
+          />
         </div>
         <div className="space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Ponto B</p>
-          <input type="text" value={bLatText} onChange={e => setBLatText(e.target.value)} className={inputClass} aria-label="Latitude do ponto B" placeholder="Latitude B" />
-          <input type="text" value={bLonText} onChange={e => setBLonText(e.target.value)} className={inputClass} aria-label="Longitude do ponto B" placeholder="Longitude B" />
+          <input
+            type="text"
+            value={bLatText}
+            onChange={(e) => setBLatText(e.target.value)}
+            className={inputClass}
+            aria-label="Latitude do ponto B"
+            placeholder="Latitude B"
+          />
+          <input
+            type="text"
+            value={bLonText}
+            onChange={(e) => setBLonText(e.target.value)}
+            className={inputClass}
+            aria-label="Longitude do ponto B"
+            placeholder="Longitude B"
+          />
         </div>
       </div>
       <div className="mt-4 flex items-end gap-3 flex-wrap">
         <div>
-          <label className={labelClass} htmlFor="conv-unit">Unidade</label>
-          <select id="conv-unit" value={unit} onChange={e => setUnit(e.target.value as LengthUnit)} className={inputClass}>
+          <label className={labelClass} htmlFor="conv-unit">
+            Unidade
+          </label>
+          <select
+            id="conv-unit"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value as LengthUnit)}
+            className={inputClass}
+          >
             <option value="m">metros (m)</option>
             <option value="km">quilômetros (km)</option>
             <option value="ft">pés (ft)</option>
@@ -745,14 +1010,16 @@ function DistanceSection() {
         </div>
         <div className="flex-1 min-w-[180px] p-3 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20 flex items-center justify-between gap-2">
           <div>
-            <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue mb-0.5">Distância</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-ibge-blue dark:text-ibge-light-blue mb-0.5">
+              Distância
+            </p>
             <p className="font-mono text-lg font-bold text-slate-900 dark:text-white">{distanceText ?? '—'}</p>
           </div>
           {distanceText && <CopyChip text={distanceText} label="Copiar distância" />}
         </div>
       </div>
-      {[aLat, aLon, bLat, bLon].some(r => r.error) && (
-        <ErrorNote message={[aLat, aLon, bLat, bLon].find(r => r.error)!.error!} />
+      {[aLat, aLon, bLat, bLon].some((r) => r.error) && (
+        <ErrorNote message={[aLat, aLon, bLat, bLon].find((r) => r.error)?.error ?? 'Coordenada inválida.'} />
       )}
     </section>
   );
@@ -768,8 +1035,12 @@ export function ConversionsPanel() {
           Conversores offline sobre o mesmo núcleo validado por testes contra o PROJ. Fontes externas (IBGE,
           OpenStreetMap, Open-Meteo) só entram quando você clica em buscar.
         </p>
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto" role="tablist" aria-label="Seções do painel de conversões">
-          {SECTIONS.map(s => (
+        <div
+          className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto"
+          role="tablist"
+          aria-label="Seções do painel de conversões"
+        >
+          {SECTIONS.map((s) => (
             <button
               key={s.id}
               type="button"

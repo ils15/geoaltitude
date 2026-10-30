@@ -24,7 +24,19 @@ describe('triangulate (Delaunay + filtro de pontes)', () => {
     ]);
     expect(r.triangles).toHaveLength(6); // 2 triângulos × 3 índices
     expect(r.droppedTriangles).toBe(0);
-    expect(Math.max(...edgeLengths([[0, 0], [1, 0], [1, 1], [0, 1]] as const, r.triangles))).toBeCloseTo(Math.SQRT2, 6);
+    expect(
+      Math.max(
+        ...edgeLengths(
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+          ] as const,
+          r.triangles
+        )
+      )
+    ).toBeCloseTo(Math.SQRT2, 6);
   });
 
   it('grade 3×3 → 8 triângulos completos', () => {
@@ -36,15 +48,31 @@ describe('triangulate (Delaunay + filtro de pontes)', () => {
   });
 
   it('pontos colineares → nenhum triângulo (degenerado)', () => {
-    const r = triangulate([[0, 0], [1, 0], [2, 0]] as const);
+    const r = triangulate([
+      [0, 0],
+      [1, 0],
+      [2, 0],
+    ] as const);
     expect(r.triangles).toHaveLength(0);
   });
 
   it('dois aglomerados distantes: nenhuma aresta-ponte sobrevive ao filtro', () => {
     const pts: Array<readonly [number, number]> = [];
     // aglomerados 2×2 (não colineares) separados por ~140 km
-    for (const [dx, dy] of [[0, 0], [10, 0], [0, 10], [10, 10]] as const) pts.push([dx, dy]);
-    for (const [dx, dy] of [[0, 0], [10, 0], [0, 10], [10, 10]] as const) pts.push([100000 + dx, 100000 + dy]);
+    for (const [dx, dy] of [
+      [0, 0],
+      [10, 0],
+      [0, 10],
+      [10, 10],
+    ] as const)
+      pts.push([dx, dy]);
+    for (const [dx, dy] of [
+      [0, 0],
+      [10, 0],
+      [0, 10],
+      [10, 10],
+    ] as const)
+      pts.push([100000 + dx, 100000 + dy]);
     const r = triangulate(pts);
     expect(r.triangles.length).toBeGreaterThan(0);
     expect(r.droppedTriangles).toBeGreaterThan(0);

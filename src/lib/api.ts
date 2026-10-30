@@ -32,12 +32,17 @@ export async function getPontoDec(lat: number, lon: number): Promise<HgeoResult>
   if (!response.ok) {
     throw new Error('Failed to fetch from IBGE API');
   }
-  return response.json();
+  const data: unknown = await response.json();
+  return data as HgeoResult;
 }
 
 export async function getPontoGms(
-  glat: number, mlat: number, slat: number,
-  glon: number, mlon: number, slon: number
+  glat: number,
+  mlat: number,
+  slat: number,
+  glon: number,
+  mlon: number,
+  slon: number
 ): Promise<HgeoResult> {
   const response = await fetch(
     `https://servicodados.ibge.gov.br/api/v1/hgeohnor/ponto_gms?glat=${glat}&mlat=${mlat}&slat=${slat}&glon=${glon}&mlon=${mlon}&slon=${slon}`
@@ -45,7 +50,8 @@ export async function getPontoGms(
   if (!response.ok) {
     throw new Error('Failed to fetch from IBGE API');
   }
-  return response.json();
+  const data: unknown = await response.json();
+  return data as HgeoResult;
 }
 
 /**
@@ -55,12 +61,13 @@ export async function getPontoGms(
  */
 export async function getPontosBatch(points: LatLonInput[]): Promise<HgeoResult[]> {
   if (points.length === 0) return [];
-  const params = encodeURIComponent(JSON.stringify(points.map(p => ({ lat: p.lat, lon: p.lon }))));
+  const params = encodeURIComponent(JSON.stringify(points.map((p) => ({ lat: p.lat, lon: p.lon }))));
   const response = await fetch(`https://servicodados.ibge.gov.br/api/v1/hgeohnor/pontos?pontos=${params}`);
   if (!response.ok) {
     throw new Error('Failed to fetch batch from IBGE API');
   }
-  return response.json();
+  const data: unknown = await response.json();
+  return data as HgeoResult[];
 }
 
 /**

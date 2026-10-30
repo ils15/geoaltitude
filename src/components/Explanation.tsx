@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, ArrowRight, Satellite, Mountain, BookOpen, ShieldCheck, Sparkles, Zap, Globe } from 'lucide-react';
+import { Satellite, Mountain, BookOpen, ShieldCheck, Sparkles, Zap, Globe } from 'lucide-react';
 
 export function Explanation() {
   return (
@@ -7,7 +7,7 @@ export function Explanation() {
       {/* Header Section */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-ibge-blue/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-ibge-blue p-2.5 rounded-2xl">
@@ -17,9 +17,11 @@ export function Explanation() {
               Documentação Técnica & Geodésia
             </h2>
           </div>
-          
+
           <p className="text-slate-600 dark:text-slate-300 mb-10 leading-relaxed text-xl max-w-3xl">
-            O GeoAlt utiliza o modelo <strong className="text-ibge-blue dark:text-ibge-light-blue">hgeoHNOR2020</strong>, o padrão oficial do Sistema Geodésico Brasileiro (SGB). Esta tecnologia permite a determinação da altitude física (Ortométrica) a partir de coordenadas espaciais.
+            O GeoAlt utiliza o modelo <strong className="text-ibge-blue dark:text-ibge-light-blue">hgeoHNOR2020</strong>
+            , o padrão oficial do Sistema Geodésico Brasileiro (SGB). Esta tecnologia permite a determinação da altitude
+            física (Ortométrica) a partir de coordenadas espaciais.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -29,7 +31,9 @@ export function Explanation() {
                 Referencial Matemático (SIRGAS2000)
               </h3>
               <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-                As medições efetuadas por GNSS são referenciadas a um elipsoide (modelo matemático), resultando na <strong>Altitude Geométrica (h)</strong>. Este valor não reflete a realidade física da gravidade e não deve ser usado em projetos de engenharia hidráulica ou saneamento.
+                As medições efetuadas por GNSS são referenciadas a um elipsoide (modelo matemático), resultando na{' '}
+                <strong>Altitude Geométrica (h)</strong>. Este valor não reflete a realidade física da gravidade e não
+                deve ser usado em projetos de engenharia hidráulica ou saneamento.
               </p>
             </div>
             <div className="space-y-6">
@@ -38,7 +42,9 @@ export function Explanation() {
                 Referencial Físico (Geoide)
               </h3>
               <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-                A <strong>Altitude Ortométrica (H)</strong> é a distância contada ao longo da linha vertical entre o ponto e o geoide (Nível Médio do Mar). No Brasil, o referencial principal é o <strong>Marégrafo de Imbituba (SC)</strong>.
+                A <strong>Altitude Ortométrica (H)</strong> é a distância contada ao longo da linha vertical entre o
+                ponto e o geoide (Nível Médio do Mar). No Brasil, o referencial principal é o{' '}
+                <strong>Marégrafo de Imbituba (SC)</strong>.
               </p>
             </div>
           </div>
@@ -49,15 +55,16 @@ export function Explanation() {
       <div className="bg-slate-900 dark:bg-black rounded-3xl p-10 border border-slate-800 shadow-2xl">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="flex-1 text-center lg:text-left">
-            <span className="text-ibge-gold font-bold uppercase tracking-[0.2em] text-xs mb-3 block">Equação de Redução Geodética</span>
-            <div className="text-5xl md:text-7xl font-mono font-black text-white mb-6 tracking-tighter">
-              H = h - N
-            </div>
+            <span className="text-ibge-gold font-bold uppercase tracking-[0.2em] text-xs mb-3 block">
+              Equação de Redução Geodética
+            </span>
+            <div className="text-5xl md:text-7xl font-mono font-black text-white mb-6 tracking-tighter">H = h - N</div>
             <p className="text-slate-400 text-sm max-w-md">
-              A conversão subtrai a <strong>Ondulação Geoidal (N)</strong> da leitura bruta do GPS. O GeoAlt automatiza este cálculo consultando as grades de alta resolução do IBGE.
+              A conversão subtrai a <strong>Ondulação Geoidal (N)</strong> da leitura bruta do GPS. O GeoAlt automatiza
+              este cálculo consultando as grades de alta resolução do IBGE.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full lg:w-3/5">
             <MetricCard label="H" sub="Ortométrica" color="border-ibge-green" />
             <MetricCard label="h" sub="Geométrica" color="border-ibge-blue" />
@@ -74,39 +81,55 @@ export function Explanation() {
         </h3>
         <ol className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
           <li className="flex gap-3">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">1</span>
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">
+              1
+            </span>
             <p>
-              Na aba <strong>Lote (CSV)</strong>, clique em <strong className="text-ibge-green">“Usar dados de exemplo”</strong>. São 13
-              pontos pelo Brasil — do Pão de Açúcar ao Pico da Neblina — com altitude elipsoidal (h) do GPS. Preferir o
-              arquivo? <a href="exemplos/geoalt_demo.csv" download className="text-ibge-blue dark:text-ibge-light-blue font-medium hover:underline">Baixe o CSV de exemplo</a> e envie manualmente.
+              Na aba <strong>Lote (CSV)</strong>, clique em{' '}
+              <strong className="text-ibge-green">“Usar dados de exemplo”</strong>. São 13 pontos pelo Brasil — do Pão
+              de Açúcar ao Pico da Neblina — com altitude elipsoidal (h) do GPS. Preferir o arquivo?{' '}
+              <a
+                href="exemplos/geoalt_demo.csv"
+                download
+                className="text-ibge-blue dark:text-ibge-light-blue font-medium hover:underline"
+              >
+                Baixe o CSV de exemplo
+              </a>{' '}
+              e envie manualmente.
             </p>
           </li>
           <li className="flex gap-3">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">2</span>
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">
+              2
+            </span>
             <p>
               Confirme o mapeamento das colunas e clique em <strong>Processar Agora</strong>. O app consulta o modelo
               geoidal <strong>hgeoHNOR</strong> do IBGE em lote e calcula <strong>H = h − N</strong> ponto a ponto.
             </p>
           </li>
           <li className="flex gap-3">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">3</span>
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">
+              3
+            </span>
             <p>
               Explore os resultados: mapa com cores por altitude, perfil altimétrico, superfície 3D e exportação em
               CSV/KML/<strong>DXF em UTM</strong>. No mapa, use as ferramentas de desenho para medir distâncias e áreas.
             </p>
           </li>
           <li className="flex gap-3">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">4</span>
+            <span className="shrink-0 w-6 h-6 rounded-full bg-ibge-green/10 text-ibge-green font-bold flex items-center justify-center text-xs">
+              4
+            </span>
             <p>
-              Na aba <strong>Conversões</strong>, teste UTM ↔ geográficas, transformação de datums e unidades — tudo offline,
-              validado por testes contra o PROJ.
+              Na aba <strong>Conversões</strong>, teste UTM ↔ geográficas, transformação de datums e unidades — tudo
+              offline, validado por testes contra o PROJ.
             </p>
           </li>
         </ol>
         <div className="mt-6 p-4 bg-ibge-blue/5 dark:bg-ibge-blue/10 rounded-xl border border-ibge-blue/20 text-xs text-slate-600 dark:text-slate-300">
-          <strong className="text-ibge-blue dark:text-ibge-light-blue">Repare no exemplo:</strong> em Belém o h elipsoidal fica{' '}
-          <strong>negativo</strong> (−17,74 m, porque N ≈ −25,7 m na foz do Amazonas), já em Curitiba e Porto Alegre N é{' '}
-          <strong>positivo</strong> (+4 a +5 m) — e no Pico da Neblina a API responde com o modelo{' '}
+          <strong className="text-ibge-blue dark:text-ibge-light-blue">Repare no exemplo:</strong> em Belém o h
+          elipsoidal fica <strong>negativo</strong> (−17,74 m, porque N ≈ −25,7 m na foz do Amazonas), já em Curitiba e
+          Porto Alegre N é <strong>positivo</strong> (+4 a +5 m) — e no Pico da Neblina a API responde com o modelo{' '}
           <span className="font-mono">MAPGEO2015_OESTE</span>, usado como fallback na região oeste.
         </div>
       </div>
@@ -164,7 +187,9 @@ export function Explanation() {
             Privacidade
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-            O GeoAlt opera sob uma política de <strong>Retenção Zero</strong>. Suas coordenadas e arquivos CSV são processados de forma efêmera. Nenhuma informação de projeto é armazenada em nossos bancos de dados após o processamento.
+            O GeoAlt opera sob uma política de <strong>Retenção Zero</strong>. Suas coordenadas e arquivos CSV são
+            processados de forma efêmera. Nenhuma informação de projeto é armazenada em nossos bancos de dados após o
+            processamento.
           </p>
           <div className="flex items-center gap-2 text-[10px] font-bold text-ibge-blue uppercase tracking-wider">
             <Zap className="w-3 h-3" />
@@ -176,7 +201,7 @@ export function Explanation() {
   );
 }
 
-function MetricCard({ label, sub, color }: { label: string, sub: string, color: string }) {
+function MetricCard({ label, sub, color }: { label: string; sub: string; color: string }) {
   return (
     <div className={`bg-white/5 dark:bg-white/5 border-2 ${color} p-6 rounded-2xl text-center backdrop-blur-sm`}>
       <span className="text-3xl font-black text-white block mb-1">{label}</span>

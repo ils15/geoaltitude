@@ -42,6 +42,7 @@ O GeoAlt resolve a complexidade da ondulação geoidal brasileira. Enquanto rece
 `H = h - N`
 
 Onde:
+
 - **H**: Altitude Ortométrica (Nível Médio do Mar / Imbituba)
 - **h**: Altitude Geométrica (GNSS / SIRGAS2000)
 - **N**: Ondulação Geoidal (Modelo hgeoHNOR2020)
@@ -49,6 +50,7 @@ Onde:
 ## 🛡️ Privacidade e Segurança de Dados
 
 O GeoAlt foi desenvolvido com foco absoluto em privacidade industrial:
+
 - **Zero Data Retention**: Seus dados de coordenadas não são armazenados em nossos servidores.
 - **Client-Side Heavy**: O processamento de arquivos (CSV/Shapefile) e a geração de relatórios ocorrem diretamente no seu navegador.
 - **Transparência**: Conexões externas são realizadas exclusivamente com as APIs oficiais do IBGE e OpenStreetMap (Nominatim).
@@ -60,19 +62,19 @@ A visualização dos dashboards é construída com **React + Recharts**, com foc
 ### Componentes Implementados
 
 - **Perfil de Elevação (Perfil H)**
-    - Eixo horizontal em distancia acumulada (km), calculada por Haversine
-    - Camada dupla: **H** como area com gradiente e **h** como linha pontilhada
-    - Exibe de forma visual a relacao geodesica entre h, H e ondulacao geoidal (N)
+  - Eixo horizontal em distancia acumulada (km), calculada por Haversine
+  - Camada dupla: **H** como area com gradiente e **h** como linha pontilhada
+  - Exibe de forma visual a relacao geodesica entre h, H e ondulacao geoidal (N)
 
 - **Planimetria (XY)**
-    - Trajeto em coordenadas geograficas com colorizacao por altitude
-    - Escala cromatica continua para reforcar mudancas altimetricas
-    - Proporcao espacial ajustada para reduzir distorcoes visuais da rota
+  - Trajeto em coordenadas geograficas com colorizacao por altitude
+  - Escala cromatica continua para reforcar mudancas altimetricas
+  - Proporcao espacial ajustada para reduzir distorcoes visuais da rota
 
 - **Polimento Visual**
-    - Grid horizontal sutil (sem linhas verticais)
-    - Destaque de ponto apenas no hover com tooltip tecnico
-    - Nota tecnica orientando o uso do modo mapa para projecao cartografica fiel
+  - Grid horizontal sutil (sem linhas verticais)
+  - Destaque de ponto apenas no hover com tooltip tecnico
+  - Nota tecnica orientando o uso do modo mapa para projecao cartografica fiel
 
 ### Referencia de Implementacao
 
@@ -85,4 +87,5 @@ A visualização dos dashboards é construída com **React + Recharts**, com foc
 Este software é distribuído sob a **Apache License 2.0**. Ele está em total conformidade com as normas técnicas brasileiras para georreferenciamento e topografia.
 
 ---
-*GeoAlt - Precisão Milimétrica para Grandes Decisões.*
+
+_GeoAlt - Precisão Milimétrica para Grandes Decisões._

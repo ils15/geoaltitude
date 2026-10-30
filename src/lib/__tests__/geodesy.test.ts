@@ -30,7 +30,15 @@ import {
  *  - EPSG:15485 (SAD69(96) → SIRGAS2000, Helmert -67.35/3.88/-38.22).
  * Valores em metros com 4 casas decimais.
  */
-const UTM_WGS84_VECTORS: Array<{ name: string; lat: number; lon: number; zone: number; hemi: 'N' | 'S'; E: number; N: number }> = [
+const UTM_WGS84_VECTORS: Array<{
+  name: string;
+  lat: number;
+  lon: number;
+  zone: number;
+  hemi: 'N' | 'S';
+  E: number;
+  N: number;
+}> = [
   { name: 'Brasília', lat: -15.7939, lon: -47.8828, zone: 23, hemi: 'S', E: 191138.7431, N: 8251745.9056 },
   { name: 'Rio de Janeiro', lat: -22.9068, lon: -43.1729, zone: 23, hemi: 'S', E: 687394.5933, N: 7465634.1277 },
   { name: 'São Paulo', lat: -23.5505, lon: -46.6333, zone: 23, hemi: 'S', E: 333287.9151, N: 7394588.3186 },
@@ -43,7 +51,15 @@ const UTM_WGS84_VECTORS: Array<{ name: string; lat: number; lon: number; zone: n
   { name: 'Meridiano central fuso 31', lat: 0.0, lon: 3.0, zone: 31, hemi: 'N', E: 500000, N: 0 },
   { name: 'MC fuso 23 a 20°S', lat: -20.0, lon: -45.0, zone: 23, hemi: 'S', E: 500000, N: 7788518.6923 },
   { name: 'White House (N)', lat: 38.8977, lon: -77.0365, zone: 18, hemi: 'N', E: 323394.2964, N: 4307395.6338 },
-  { name: 'Fronteira fusos 22/23 (-48°)', lat: -20.0, lon: -48.0, zone: 23, hemi: 'S', E: 186073.6796, N: 7785705.9737 },
+  {
+    name: 'Fronteira fusos 22/23 (-48°)',
+    lat: -20.0,
+    lon: -48.0,
+    zone: 23,
+    hemi: 'S',
+    E: 186073.6796,
+    N: 7785705.9737,
+  },
   { name: 'Malha teste P1', lat: -22.9414, lon: -43.887, zone: 23, hemi: 'S', E: 614116.148, N: 7462535.1426 },
   { name: 'Malha teste P10', lat: -23.0051, lon: -44.1961, zone: 23, hemi: 'S', E: 582383.6944, N: 7455689.787 },
 ];
@@ -90,9 +106,17 @@ describe('UTM — ida e volta (round-trip) numa grade ampla', () => {
     }
   }
   // Casos de borda: hemisfério, equador, limites de fuso
-  grid.push([0, -45], [0.0001, -45], [-0.0001, -45], [-20, -48.0000001], [-20, -42.0000001], [45, -70], [-33.74, -73.74]);
+  grid.push(
+    [0, -45],
+    [0.0001, -45],
+    [-0.0001, -45],
+    [-20, -48.0000001],
+    [-20, -42.0000001],
+    [45, -70],
+    [-33.74, -73.74]
+  );
 
-  it.each(grid.map(p => [`${p[0].toFixed(4)}, ${p[1].toFixed(4)}`, p[0], p[1]]))(
+  it.each(grid.map((p) => [`${p[0].toFixed(4)}, ${p[1].toFixed(4)}`, p[0], p[1]]))(
     'round-trip %s° mantém coordenada a 0,5 mm',
     (_label, lat, lon) => {
       const utm = geographicToUTM(lat, lon);
@@ -150,8 +174,14 @@ describe('GMS ↔ graus decimais', () => {
     const lon = decToDmsParts(-46.6333, false);
     expect(lon.hemisphere).toBe('W');
     // round trip: recompor com gmsToDec devolve o valor original
-    expect(gmsToDec(lat.hemisphere === 'S' ? -lat.degrees : lat.degrees, lat.minutes, lat.seconds)).toBeCloseTo(-22.90802778, 7);
-    expect(gmsToDec(lon.hemisphere === 'W' ? -lon.degrees : lon.degrees, lon.minutes, lon.seconds)).toBeCloseTo(-46.6333, 7);
+    expect(gmsToDec(lat.hemisphere === 'S' ? -lat.degrees : lat.degrees, lat.minutes, lat.seconds)).toBeCloseTo(
+      -22.90802778,
+      7
+    );
+    expect(gmsToDec(lon.hemisphere === 'W' ? -lon.degrees : lon.degrees, lon.minutes, lon.seconds)).toBeCloseTo(
+      -46.6333,
+      7
+    );
   });
 
   it('parseDmsString aceita formatos comuns no Brasil', () => {
@@ -161,7 +191,7 @@ describe('GMS ↔ graus decimais', () => {
     expect(parseDmsString('22°54\'28,9"S')).toBeCloseTo(-22.90802778, 8);
     expect(parseDmsString('22 54 28.9 S')).toBeCloseTo(-22.90802778, 8);
     expect(parseDmsString('22°54\'28,9" O')).toBeCloseTo(-22.90802778, 8); // Oeste
-    expect(parseDmsString('47° 52\' 47.9\'\' W')).toBeCloseTo(-47.87997, 5);
+    expect(parseDmsString("47° 52' 47.9'' W")).toBeCloseTo(-47.87997, 5);
     expect(parseDmsString('N 12 30 00')).toBeCloseTo(12.5, 9);
     expect(() => parseDmsString('abc')).toThrow();
     expect(() => parseDmsString('')).toThrow();
@@ -222,7 +252,7 @@ describe('Datum: SAD69(96) → SIRGAS2000 (vetores PROJ/EPSG:15485)', () => {
     [-30.0346, -51.2177, -30.035097972, -51.218219128],
   ];
 
-  it.each(vectors.map(v => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3]]))(
+  it.each(vectors.map((v) => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3]]))(
     'transforma %s com Helmert oficial do IBGE',
     (_label, lat, lon, latOut, lonOut) => {
       const result = transformDatum(lat, lon, 'SAD69_96', 'SIRGAS2000');
@@ -255,7 +285,7 @@ describe('Datum: SAD69 clássico → SIRGAS2000 (parâmetros clássicos −57/+1
     [-8.0476, -34.877, -8.048025498, -34.877288244],
   ];
 
-  it.each(vectors.map(v => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3]]))(
+  it.each(vectors.map((v) => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3]]))(
     'transforma %s com o Helmert clássico',
     (_label, lat, lon, latOut, lonOut) => {
       const result = transformDatum(lat, lon, 'SAD69_CLASSICO', 'SIRGAS2000');
@@ -280,7 +310,7 @@ describe('ECEF (XYZ geocêntrico)', () => {
     [38.8977, -77.0365, 1115026.1988, -4843785.0815, 3983484.7683],
   ];
 
-  it.each(vetores.map(v => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3], v[4]]))(
+  it.each(vetores.map((v) => [`(${v[0]}, ${v[1]})`, v[0], v[1], v[2], v[3], v[4]]))(
     'geodésica → ECEF bate com PROJ: %s',
     (_label, lat, lon, x, y, z) => {
       const ecef = geodeticToEcef(lat, lon);
@@ -326,9 +356,7 @@ describe('Medidas geodésicas', () => {
     const a = { lat: 0, lon: 0 };
     const b = { lat: 0, lon: 1 };
     const c = { lat: 0, lon: 2 };
-    expect(polylineLength([a, b, c])).toBeCloseTo(
-      haversineDistance(a, b) + haversineDistance(b, c), 6
-    );
+    expect(polylineLength([a, b, c])).toBeCloseTo(haversineDistance(a, b) + haversineDistance(b, c), 6);
     expect(polylineLength([a])).toBe(0);
   });
 
@@ -342,7 +370,12 @@ describe('Medidas geodésicas', () => {
       { lat: 0, lon: 1 },
     ]);
     expect(area).toBeCloseTo(expected, 0); // ≈ 12 363 970 000 m²
-    expect(polygonArea([{ lat: 0, lon: 0 }, { lat: 1, lon: 1 }])).toBe(0);
+    expect(
+      polygonArea([
+        { lat: 0, lon: 0 },
+        { lat: 1, lon: 1 },
+      ])
+    ).toBe(0);
   });
 
   it('degreesToMeters: 1° de latitude ≈ 110 946 m (raio meridiano), 1° de longitude < isso', () => {

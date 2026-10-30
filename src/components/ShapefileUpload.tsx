@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileCode, Loader2, X, FolderArchive } from 'lucide-react';
+import { Upload, FileCode, Loader2, FolderArchive } from 'lucide-react';
 import shp from 'shpjs';
 import { toast } from 'react-hot-toast';
 
 interface ShapefileUploadProps {
-  onShapefileLoaded: (geoJson: any) => void;
+  onShapefileLoaded: (geoJson: GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[] | null) => void;
 }
 
 export function ShapefileUpload({ onShapefileLoaded }: ShapefileUploadProps) {
@@ -47,11 +47,11 @@ export function ShapefileUpload({ onShapefileLoaded }: ShapefileUploadProps) {
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sobrepor Shapefile</h2>
       </div>
 
-      <div 
+      <div
         onClick={() => !loading && fileInputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
-          file 
-            ? 'border-ibge-gold/30 bg-ibge-gold/5 dark:bg-ibge-gold/10' 
+          file
+            ? 'border-ibge-gold/30 bg-ibge-gold/5 dark:bg-ibge-gold/10'
             : 'border-slate-300 dark:border-slate-700 hover:border-ibge-gold/50 bg-slate-50 dark:bg-slate-800/50'
         } ${loading ? 'opacity-50 cursor-wait' : ''}`}
       >
@@ -60,9 +60,9 @@ export function ShapefileUpload({ onShapefileLoaded }: ShapefileUploadProps) {
           accept=".zip"
           className="hidden"
           ref={fileInputRef}
-          onChange={handleFileChange}
+          onChange={(e) => void handleFileChange(e)}
         />
-        
+
         {loading ? (
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-10 h-10 text-ibge-gold animate-spin" />
@@ -90,8 +90,12 @@ export function ShapefileUpload({ onShapefileLoaded }: ShapefileUploadProps) {
           <div className="flex flex-col items-center gap-3">
             <Upload className="w-10 h-10 text-slate-400 dark:text-slate-500" />
             <div>
-              <p className="text-sm font-medium text-slate-900 dark:text-white">Clique para subir um Shapefile (.zip)</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">O ZIP deve conter .shp, .shx, .dbf e .prj</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">
+                Clique para subir um Shapefile (.zip)
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                O ZIP deve conter .shp, .shx, .dbf e .prj
+              </p>
             </div>
           </div>
         )}

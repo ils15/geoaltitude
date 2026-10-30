@@ -6,11 +6,23 @@ import { ResultsView } from './components/ResultsView';
 import { Explanation } from './components/Explanation';
 import { ConversionsPanel } from './components/ConversionsPanel';
 import { MapPreview } from './components/MapPreview';
-import { getPontoDec, HgeoResult } from './lib/api';
 import { useHistory } from './hooks/useHistory';
 import { useTheme } from './hooks/useTheme';
 import { ThemeToggle } from './components/ThemeToggle';
-import { Compass, Globe2, UploadCloud, Calculator, Info, Map as MapIcon, History, Trash2, Copy, Check, Ruler } from 'lucide-react';
+import { HgeoResult } from './lib/api';
+import {
+  Compass,
+  Globe2,
+  UploadCloud,
+  Calculator,
+  Info,
+  Map as MapIcon,
+  History,
+  Trash2,
+  Copy,
+  Check,
+  Ruler,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster } from 'react-hot-toast';
 
@@ -19,7 +31,9 @@ type Tab = 'map' | 'upload' | 'convert' | 'about';
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('upload');
   const [results, setResults] = useState<HgeoResult[]>([]);
-  const [shapefileData, setShapefileData] = useState<any>(null);
+  const [shapefileData, setShapefileData] = useState<GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[] | null>(
+    null
+  );
   const { history, addPoint, clearHistory } = useHistory();
   const theme = useTheme();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -35,7 +49,7 @@ export default function App() {
   };
 
   const copyToClipboard = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
@@ -51,15 +65,37 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">GeoAlt</h1>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:block">Conversão de Altitude hgeoHNOR</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:block">
+                Conversão de Altitude hgeoHNOR
+              </p>
             </div>
           </div>
-          
+
           <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-2xl transition-colors duration-200 border border-slate-200/50 dark:border-slate-700/50 shadow-inner">
-            <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<UploadCloud className="w-4 h-4" />} label="Lote (CSV)" />
-            <TabButton active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon className="w-4 h-4" />} label="Mapa" />
-            <TabButton active={activeTab === 'convert'} onClick={() => setActiveTab('convert')} icon={<Calculator className="w-4 h-4" />} label="Ponto Único & Conversões" />
-            <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')} icon={<Info className="w-4 h-4" />} label="Entenda" />
+            <TabButton
+              active={activeTab === 'upload'}
+              onClick={() => setActiveTab('upload')}
+              icon={<UploadCloud className="w-4 h-4" />}
+              label="Lote (CSV)"
+            />
+            <TabButton
+              active={activeTab === 'map'}
+              onClick={() => setActiveTab('map')}
+              icon={<MapIcon className="w-4 h-4" />}
+              label="Mapa"
+            />
+            <TabButton
+              active={activeTab === 'convert'}
+              onClick={() => setActiveTab('convert')}
+              icon={<Calculator className="w-4 h-4" />}
+              label="Ponto Único & Conversões"
+            />
+            <TabButton
+              active={activeTab === 'about'}
+              onClick={() => setActiveTab('about')}
+              icon={<Info className="w-4 h-4" />}
+              label="Entenda"
+            />
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -76,30 +112,63 @@ export default function App() {
             </a>
           </div>
         </div>
-        
+
         {/* Mobile Nav */}
         <div className="md:hidden border-t border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl px-4 py-3 flex overflow-x-auto gap-2 hide-scrollbar transition-colors duration-200">
-            <TabButton active={activeTab === 'upload'} onClick={() => setActiveTab('upload')} icon={<UploadCloud className="w-4 h-4" />} label="Lote" />
-            <TabButton active={activeTab === 'map'} onClick={() => setActiveTab('map')} icon={<MapIcon className="w-4 h-4" />} label="Mapa" />
-            <TabButton active={activeTab === 'convert'} onClick={() => setActiveTab('convert')} icon={<Calculator className="w-4 h-4" />} label="Conversões" />
-            <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')} icon={<Info className="w-4 h-4" />} label="Entenda" />
+          <TabButton
+            active={activeTab === 'upload'}
+            onClick={() => setActiveTab('upload')}
+            icon={<UploadCloud className="w-4 h-4" />}
+            label="Lote"
+          />
+          <TabButton
+            active={activeTab === 'map'}
+            onClick={() => setActiveTab('map')}
+            icon={<MapIcon className="w-4 h-4" />}
+            label="Mapa"
+          />
+          <TabButton
+            active={activeTab === 'convert'}
+            onClick={() => setActiveTab('convert')}
+            icon={<Calculator className="w-4 h-4" />}
+            label="Conversões"
+          />
+          <TabButton
+            active={activeTab === 'about'}
+            onClick={() => setActiveTab('about')}
+            icon={<Info className="w-4 h-4" />}
+            label="Entenda"
+          />
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
           {activeTab === 'map' && (
-            <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+            <motion.div
+              key="map"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Visualização no Mapa</h2>
-                <p className="text-slate-600 dark:text-slate-400">Visualize os pontos processados, altere camadas e desenhe polígonos.</p>
+                <p className="text-slate-600 dark:text-slate-400">
+                  Visualize os pontos processados, altere camadas e desenhe polígonos.
+                </p>
               </div>
               <MapPreview points={results} shapefileData={shapefileData} />
             </motion.div>
           )}
 
           {activeTab === 'upload' && (
-            <motion.div key="upload" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+            <motion.div
+              key="upload"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-8"
+            >
               <div className="mb-2">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Processamento em Lote</h2>
                 <p className="text-slate-600 dark:text-slate-400">Faça upload de um CSV com milhares de pontos.</p>
@@ -119,14 +188,23 @@ export default function App() {
                 {results.length > 0 ? (
                   <ResultsView results={results} />
                 ) : (
-                  <EmptyState icon={<UploadCloud className="w-8 h-8 text-slate-300" />} message="Faça upload de um arquivo para ver os resultados aqui." />
+                  <EmptyState
+                    icon={<UploadCloud className="w-8 h-8 text-slate-300" />}
+                    message="Faça upload de um arquivo para ver os resultados aqui."
+                  />
                 )}
               </div>
             </motion.div>
           )}
 
           {activeTab === 'convert' && (
-            <motion.div key="convert" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
+            <motion.div
+              key="convert"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-10"
+            >
               <div className="mb-2">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Ponto Único & Conversões</h2>
                 <p className="text-slate-600 dark:text-slate-400">
@@ -142,7 +220,10 @@ export default function App() {
                   {results.length === 1 ? (
                     <ResultsView results={results} />
                   ) : (
-                    <EmptyState icon={<Calculator className="w-8 h-8 text-slate-300" />} message="Busque um endereço ou insira coordenadas para calcular a altitude ortométrica (H) com o modelo geoidal." />
+                    <EmptyState
+                      icon={<Calculator className="w-8 h-8 text-slate-300" />}
+                      message="Busque um endereço ou insira coordenadas para calcular a altitude ortométrica (H) com o modelo geoidal."
+                    />
                   )}
                 </div>
               </div>
@@ -158,7 +239,12 @@ export default function App() {
           )}
 
           {activeTab === 'about' && (
-            <motion.div key="about" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
               <Explanation />
             </motion.div>
           )}
@@ -180,7 +266,7 @@ export default function App() {
                 Limpar
               </button>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800/50">
@@ -195,20 +281,38 @@ export default function App() {
                 </thead>
                 <tbody>
                   {history.map((item, index) => (
-                    <tr key={index} className="border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr
+                      key={index}
+                      className="border-b border-slate-100 dark:border-slate-800/50 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                    >
                       <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">{item.lat}</td>
                       <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">{item.long}</td>
-                      <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">{item.h !== undefined ? `${item.h.toFixed(3)} m` : '-'}</td>
-                      <td className="px-4 py-3 font-mono font-medium text-ibge-blue dark:text-ibge-light-blue">{item.fator_conversao} m</td>
-                      <td className="px-4 py-3 font-mono font-medium text-ibge-green dark:text-ibge-green">{item.H !== undefined ? `${item.H.toFixed(3)} m` : '-'}</td>
+                      <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">
+                        {item.h !== undefined ? `${item.h.toFixed(3)} m` : '-'}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-medium text-ibge-blue dark:text-ibge-light-blue">
+                        {item.fator_conversao} m
+                      </td>
+                      <td className="px-4 py-3 font-mono font-medium text-ibge-green dark:text-ibge-green">
+                        {item.H !== undefined ? `${item.H.toFixed(3)} m` : '-'}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <button
-                          onClick={() => copyToClipboard(`Lat: ${item.lat}, Lon: ${item.long}, h: ${item.h !== undefined ? item.h.toFixed(3) : '-'}, N: ${item.fator_conversao}m, H: ${item.H !== undefined ? item.H.toFixed(3) : '-'}`, index)}
+                          onClick={() =>
+                            copyToClipboard(
+                              `Lat: ${item.lat}, Lon: ${item.long}, h: ${item.h !== undefined ? item.h.toFixed(3) : '-'}, N: ${item.fator_conversao}m, H: ${item.H !== undefined ? item.H.toFixed(3) : '-'}`,
+                              index
+                            )
+                          }
                           className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
                           title="Copiar resultado"
                           aria-label="Copiar resultado"
                         >
-                          {copiedIndex === index ? <Check className="w-4 h-4 text-ibge-green" /> : <Copy className="w-4 h-4" />}
+                          {copiedIndex === index ? (
+                            <Check className="w-4 h-4 text-ibge-green" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -252,13 +356,23 @@ export default function App() {
   );
 }
 
-function TabButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap ${
-        active 
-          ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-md' 
+        active
+          ? 'bg-white dark:bg-slate-700 text-ibge-blue dark:text-white shadow-md'
           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
       }`}
     >
@@ -268,7 +382,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
   );
 }
 
-function EmptyState({ icon, message }: { icon: React.ReactNode, message: string }) {
+function EmptyState({ icon, message }: { icon: React.ReactNode; message: string }) {
   return (
     <div className="h-full min-h-[400px] bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl border-2 border-slate-200/70 dark:border-slate-800/70 border-dashed flex flex-col items-center justify-center p-8 text-center transition-colors duration-200 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-700/50 hover:bg-white/70 dark:hover:bg-slate-900/70">
       <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl rotate-3 flex items-center justify-center mb-4 shadow-sm text-slate-400 dark:text-slate-500 transition-transform duration-300 hover:rotate-6 hover:scale-110">
@@ -279,4 +393,3 @@ function EmptyState({ icon, message }: { icon: React.ReactNode, message: string 
     </div>
   );
 }
-
