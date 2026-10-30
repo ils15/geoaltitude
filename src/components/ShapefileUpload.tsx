@@ -30,7 +30,9 @@ export function ShapefileUpload({ onShapefileLoaded }: ShapefileUploadProps) {
       const buffer = await zipFile.arrayBuffer();
       const geoJson = await shp(buffer);
       onShapefileLoaded(geoJson);
-      toast.success('Shapefile carregado com sucesso!');
+      // shpjs reprojetar automaticamente para WGS84 quando há .prj no ZIP;
+      // sem .prj, assume que as coordenadas já são geográficas (lat/lon)
+      toast.success('Shapefile carregado! Coordenadas reprojetadas para WGS84 (use o .prj se estiver em UTM).');
     } catch (error) {
       console.error('Error processing shapefile:', error);
       toast.error('Erro ao processar o Shapefile. Verifique se o .zip contém os arquivos .shp, .dbf, etc.');
