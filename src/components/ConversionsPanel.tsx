@@ -25,6 +25,7 @@ import { GEOID_MODELS, GeoidModelId, fetchUndulation } from '../lib/geoidModels'
 import { fetchTerrainElevation } from '../lib/openServices';
 import { forwardGeocode, ForwardGeocodeResult } from '../lib/geocoding';
 import { errorMessage } from '../lib/errors';
+import { transformItrf2000To2014 } from '../lib/itrf';
 import { CopyChip } from './CopyChip';
 import { gridGroundFactor, gridToGround, groundToGrid } from '../lib/gridGround';
 
@@ -949,6 +950,18 @@ function DatumSection() {
       ? haversineDistance({ lat: latParsed.value, lon: lonParsed.value }, result)
       : null;
 
+  // ITRF com época: SIRGAS2000/WGS84 ≈ ITRF2000 → ITRF2014 na época de observação
+  const [epochText, setEpochText] = useState('2024.0');
+  const epoch = parseFloat(epochText.replace(',', '.'));
+  const itrf =
+    latParsed.value !== undefined &&
+    lonParsed.value !== undefined &&
+    Number.isFinite(epoch) &&
+    epoch >= 1990 &&
+    epoch <= 2100
+      ? transformItrf2000To2014(latParsed.value, lonParsed.value, epoch)
+      : null;
+
   return (
     <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
       <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
@@ -1047,6 +1060,37 @@ function DatumSection() {
           </>
         ) : (
           <p className="text-xs text-slate-500 dark:text-slate-400">Informe a coordenada para transformar.</p>
+        )}
+        {itrf && (
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
+            <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">
+              Extra · Épocas ITRF (dados GNSS de campanha)
+            </p>
+            <div className="flex items-end gap-3 flex-wrap mb-2">
+              <div>
+                <label className={labelClass} htmlFor="conv-epoch">
+                  Época de observação (ano decimal)
+                </label>
+                <input
+                  id="conv-epoch"
+                  type="text"
+                  value={epochText}
+                  onChange={(e) => setEpochText(e.target.value)}
+                  className={`${inputClass} max-w-[160px]`}
+                  placeholder="ex.: 2024.0"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 pb-2 max-w-md">
+                Trata SIRGAS2000/WGS84 como ITRF2000 e propaga para ITRF2014 na época informada (Helmert 14 parâmetros,
+                t0 = 2010.0, EPSG/proj.db).
+              </p>
+            </div>
+            <ResultRow
+              label={`ITRF2014 na época ${Number.isFinite(epoch) ? epoch : '—'}`}
+              value={`${itrf.lat.toFixed(9)}°, ${itrf.lon.toFixed(9)}°`}
+              copyText={`${itrf.lat.toFixed(9)}, ${itrf.lon.toFixed(9)}`}
+            />
+          </div>
         )}
       </div>
     </section>
