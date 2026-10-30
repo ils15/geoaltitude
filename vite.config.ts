@@ -29,6 +29,8 @@ export default defineConfig(({mode}) => {
         workbox: {
           navigateFallback: 'index.html',
           globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+          // chunks pesados lazy (plotly ~5 MB, egm96 ~2,8 MB) precisam passar do limite padrão de 2 MiB
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           runtimeCaching: [
             {
               // chunk do EGM96 (grade NGA): cacheado após o 1º uso — modelo global offline
