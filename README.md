@@ -8,6 +8,8 @@
 
 🌐 **Demo online:** [ils15.github.io/geoaltitude](https://ils15.github.io/geoaltitude/)
 
+🗓️ **Roadmap de evolução:** [`ROADMAP.md`](ROADMAP.md) — plano estruturado em 5 fases (CI/E2E, entrada de dados, ferramentas do topógrafo, produto em campo, geodésia profunda).
+
 ## 🚀 Demo rápido (1 minuto)
 
 1. Abra a aba **Lote (CSV)** e clique em **“Usar dados de exemplo”** — 13 pontos pelo Brasil (do Pão de Açúcar ao Pico da Neblina), com `h` derivada do modelo geoidal real.
