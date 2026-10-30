@@ -19,7 +19,29 @@ export interface PasteResult {
   invalid: number;
 }
 
-const FIELD_SPLIT = /\t|;|,|\s{2,}/;
+const FIELD_SPLIT = /\t+|;/;
+
+/**
+ * Divide a linha em campos resolvendo a ambiguidade da vírgula no Brasil
+ * (decimal vs separador):
+ *  - tab ou ponto-e-vírgula presentes → são os separadores, vírgula é decimal;
+ *  - só vírgulas: com até 3 campos é separador (`lat,lon,h` com decimais por
+ *    ponto); com mais de 3 são decimais agrupadas sem espaço — reemparelha
+ *    (`-22,9068,-43,1729,5` → [-22.9068, -43.1729, 5]).
+ */
+function splitFields(line: string): string[] {
+  if (/\t/.test(line)) return line.split(/\t+/);
+  if (line.includes(';')) return line.split(/;/);
+  const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length <= 3) return parts;
+  const merged: string[] = [];
+  let i = 0;
+  for (; i + 1 < parts.length; i += 2) {
+    merged.push(`${parts[i]}.${parts[i + 1]}`);
+  }
+  if (i < parts.length) merged.push(parts[i]);
+  return merged;
+}
 
 function parseNumber(text: string): number | null {
   const cleaned = text.trim().replace(',', '.');
@@ -49,7 +71,9 @@ export function parsePastedCoordinates(text: string): PasteResult {
     .filter(line => line.length > 0 && !/^[-,;\t\s]+$/.test(line)); // descarta separadores soltos
 
   const rows: PastedRow[] = lines.map(raw => {
-    const fields = raw.split(FIELD_SPLIT).map(f => f.trim()).filter(f => f.length > 0);
+    // Normaliza a vírgula decimal dentro de GMS (ex.: 28,9") antes de dividir
+    const normalized = raw.replace(/([°º'′])(\d+),(\d+)/g, '$1$2.$3');
+    const fields = splitFields(normalized).map(f => f.trim()).filter(f => f.length > 0);
     if (fields.length < 2) return { raw, lat: null, lon: null, h: null };
 
     const lat = parseCoordinateField(fields[0]);
