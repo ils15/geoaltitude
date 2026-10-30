@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  web:
+    name: Web (self-host zip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build -- --base=/geoaltitude/
+      - name: Empacotar build web
+        run: |
+          cd dist
+          zip -r "../opengeoaltitude-selfhost-${GITHUB_REF_NAME}.zip" .
+      - name: Publicar no GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: opengeoaltitude-selfhost-${{ github.ref_name }}.zip
+
+  # Futuro (Fase D4 do APPS.md): instaladores Windows/macOS/Linux via Tauri
+  # e APK/AAB Android via TWA/Capacitor anexados à mesma release.

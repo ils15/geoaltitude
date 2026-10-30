@@ -13,11 +13,13 @@
 [![Model: hgeoHNOR + EGM96 + EGM2008](https://img.shields.io/badge/geoides-hgeoHNOR%20·%20EGM96%20·%20EGM2008-green)](https://www.ibge.gov.br/)
 [![Standards: SIRGAS2000](https://img.shields.io/badge/Geodesy-SIRGAS2000-gold)](https://www.sirgas.org/)
 
-**OpenGeoaltitude** (anteriormente *GeoAlt*) é uma plataforma de inteligência geográfica projetada para a conversão de alta precisão entre altitudes geométricas (GNSS) e ortométricas. Utilizando o motor oficial **hgeoHNOR2020** do IBGE, o sistema provê a ponte fundamental entre a medição satelital e a realidade física do terreno.
+**OpenGeoaltitude** (anteriormente _GeoAlt_) é uma plataforma de inteligência geográfica projetada para a conversão de alta precisão entre altitudes geométricas (GNSS) e ortométricas. Utilizando o motor oficial **hgeoHNOR2020** do IBGE, o sistema provê a ponte fundamental entre a medição satelital e a realidade física do terreno.
 
 🌐 **Demo online:** [ils15.github.io/geoaltitude](https://ils15.github.io/geoaltitude/)
 
 🗓️ **Roadmap de evolução:** [`ROADMAP.md`](ROADMAP.md) — plano estruturado em 5 fases (CI/E2E, entrada de dados, ferramentas do topógrafo, produto em campo, geodésia profunda).
+
+📲 **Aplicativos (Android/Windows/macOS) e downloads:** [`APPS.md`](APPS.md) — roadmap de distribuição multiplataforma, versionamento e [`Releases`](https://github.com/ils15/geoaltitude/releases) · [Política de Privacidade](https://ils15.github.io/geoaltitude/privacidade.html)
 
 ## 🚀 Demo rápido (1 minuto)
 

@@ -12,7 +12,14 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.svg', 'exemplos/geoalt_demo.csv'],
+        includeAssets: [
+          'favicon.svg',
+          'icon-192.png',
+          'icon-512.png',
+          'maskable-512.png',
+          'privacidade.html',
+          'exemplos/geoalt_demo.csv',
+        ],
         manifest: {
           name: 'OpenGeoaltitude',
           short_name: 'OpenGeoaltitude',
