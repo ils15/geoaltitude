@@ -17,6 +17,9 @@ import {
   transformDatum,
   utmToGeographic,
   utmZoneCentralMeridian,
+  geographicToLTM,
+  ltmToGeographic,
+  ltmParams,
 } from '../lib/geodesy';
 import { GEOID_MODELS, GeoidModelId, fetchUndulation } from '../lib/geoidModels';
 import { fetchTerrainElevation } from '../lib/openServices';
@@ -90,7 +93,7 @@ function ErrorNote({ message }: { message: string }) {
 // ===== 1. Coordenadas ↔ UTM ↔ ECEF =====
 
 function CoordinatesSection() {
-  const [mode, setMode] = useState<'geo2utm' | 'utm2geo' | 'ecef'>('geo2utm');
+  const [mode, setMode] = useState<'geo2utm' | 'utm2geo' | 'ecef' | 'ltm'>('geo2utm');
 
   // Geográficas → UTM
   const [latText, setLatText] = useState('-23.5505');
@@ -137,6 +140,42 @@ function CoordinatesSection() {
   const [xText, setXText] = useState('4017003.1235');
   const [yText, setYText] = useState('-4252810.1233');
   const [zText, setZText] = useState('-2532724.1772');
+  // LTM (Transversa Local)
+  const [ltmLon0, setLtmLon0] = useState('-46');
+  const [ltmFe, setLtmFe] = useState('50000');
+  const [ltmK0, setLtmK0] = useState('1');
+  const [ltmLat, setLtmLat] = useState('-23.5505');
+  const [ltmLon, setLtmLon] = useState('-46.6333');
+  const [ltmE, setLtmE] = useState('-14662.1445');
+  const [ltmN, setLtmN] = useState('7394352.9236');
+  const ltmCfg = (() => {
+    const lon0 = parseFloat(ltmLon0.replace(',', '.'));
+    const fe = parseFloat(ltmFe.replace(',', '.'));
+    const k0 = parseFloat(ltmK0.replace(',', '.'));
+    if (!Number.isFinite(lon0) || lon0 < -180 || lon0 > 180) return null;
+    if (!Number.isFinite(fe)) return null;
+    if (!Number.isFinite(k0) || k0 <= 0) return null;
+    return ltmParams(lon0, 'S', fe, k0);
+  })();
+  const ltmFwdResult = (() => {
+    if (!ltmCfg)
+      return { ok: false as const, error: 'Meridiano central (-180 a 180), falso easting e k0 (> 0) inválidos.' };
+    const lat = parseCoordinateInput(ltmLat);
+    const lon = parseCoordinateInput(ltmLon);
+    if (lat.value === undefined || lon.value === undefined)
+      return { ok: false as const, error: lat.error || lon.error || '' };
+    const r = geographicToLTM(lat.value, lon.value, ltmCfg);
+    return { ok: true as const, easting: r.easting, northing: r.northing };
+  })();
+  const ltmInvResult = (() => {
+    if (!ltmCfg) return { ok: false as const, error: 'Parâmetros LTM inválidos.' };
+    const e = parseNum(ltmE);
+    const n = parseNum(ltmN);
+    if (e === null || n === null) return { ok: false as const, error: 'Informe E e N em metros.' };
+    const r = ltmToGeographic(e, n, ltmCfg);
+    return { ok: true as const, lat: r.lat, lon: r.lon };
+  })();
+
   const ecefResult: { ok: true; lat: number; lon: number; h: number } | { ok: false; error: string } = (() => {
     const x = parseNum(xText);
     const y = parseNum(yText);
@@ -180,6 +219,7 @@ function CoordinatesSection() {
           {modeButton('geo2utm', 'Geográficas → UTM')}
           {modeButton('utm2geo', 'UTM → Geográficas')}
           {modeButton('ecef', 'ECEF → Geográficas')}
+          {modeButton('ltm', 'LTM (local)')}
         </div>
       </div>
 
@@ -413,6 +453,121 @@ function CoordinatesSection() {
                 />
               </>
             )}
+          </div>
+        </>
+      )}
+      {mode === 'ltm' && (
+        <>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            Transversa Local (&quot;fuso sob medida&quot;): k0 = 1 no meridiano central — sem a distorção do fuso UTM de
+            6°. Padrão brasileiro: falso E 50 000 m, falso N 10 000 000 m (Sul).
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className={labelClass} htmlFor="ltm-lon0">
+                Meridiano central (°)
+              </label>
+              <input
+                id="ltm-lon0"
+                type="text"
+                value={ltmLon0}
+                onChange={(e) => setLtmLon0(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="ltm-k0">
+                k0
+              </label>
+              <input
+                id="ltm-k0"
+                type="text"
+                value={ltmK0}
+                onChange={(e) => setLtmK0(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="ltm-fe">
+                Falso E (m)
+              </label>
+              <input
+                id="ltm-fe"
+                type="text"
+                value={ltmFe}
+                onChange={(e) => setLtmFe(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div className="flex items-end">
+              <p className="text-xs text-slate-500 dark:text-slate-400 pb-2">Falso N fixo: 10 000 000 m (S)</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">
+                Geográficas → LTM
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <input
+                  type="text"
+                  value={ltmLat}
+                  onChange={(e) => setLtmLat(e.target.value)}
+                  className={inputClass}
+                  aria-label="Latitude LTM"
+                  placeholder="Latitude"
+                />
+                <input
+                  type="text"
+                  value={ltmLon}
+                  onChange={(e) => setLtmLon(e.target.value)}
+                  className={inputClass}
+                  aria-label="Longitude LTM"
+                  placeholder="Longitude"
+                />
+              </div>
+              {!ltmFwdResult.ok ? (
+                <ErrorNote message={ltmFwdResult.error} />
+              ) : (
+                <ResultRow
+                  label="E / N (m)"
+                  value={`${ltmFwdResult.easting.toFixed(3)} / ${ltmFwdResult.northing.toFixed(3)}`}
+                  copyText={`${ltmFwdResult.easting.toFixed(3)}, ${ltmFwdResult.northing.toFixed(3)}`}
+                />
+              )}
+            </div>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+              <p className="text-xs font-bold uppercase tracking-widest text-ibge-blue dark:text-ibge-light-blue mb-2">
+                LTM → Geográficas
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <input
+                  type="text"
+                  value={ltmE}
+                  onChange={(e) => setLtmE(e.target.value)}
+                  className={inputClass}
+                  aria-label="Easting LTM"
+                  placeholder="E (m)"
+                />
+                <input
+                  type="text"
+                  value={ltmN}
+                  onChange={(e) => setLtmN(e.target.value)}
+                  className={inputClass}
+                  aria-label="Northing LTM"
+                  placeholder="N (m)"
+                />
+              </div>
+              {!ltmInvResult.ok ? (
+                <ErrorNote message={ltmInvResult.error} />
+              ) : (
+                <ResultRow
+                  label="Lat / Lon"
+                  value={`${ltmInvResult.lat.toFixed(7)}°, ${ltmInvResult.lon.toFixed(7)}°`}
+                  copyText={`${ltmInvResult.lat.toFixed(7)}, ${ltmInvResult.lon.toFixed(7)}`}
+                />
+              )}
+            </div>
           </div>
         </>
       )}

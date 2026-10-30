@@ -178,11 +178,35 @@ function krugerConstant(ellipsoid: Ellipsoid, n: number): number {
   return (ellipsoid.a / (1 + n)) * (1 + n2 / 4 + n4 / 64 + n6 / 256);
 }
 
-/** Converte latitude/longitude (graus decimais) em UTM. */
-export function geographicToUTM(lat: number, lon: number, ellipsoid: Ellipsoid = WGS84): UTMCoordinate {
+// ===== Transversa Mercator generalizada (UTM e LTM são casos particulares) =====
+
+export interface TransverseMercatorParams {
+  /** Meridiano central (graus decimais). */
+  lon0: number;
+  /** Fator de escala no meridiano central. */
+  k0: number;
+  falseEasting: number;
+  falseNorthing: number;
+}
+
+/** Parâmetros do fuso UTM (origem sul: FN 10 000 000). */
+export function utmParams(zone: number, hemisphere: 'N' | 'S'): TransverseMercatorParams {
+  return {
+    lon0: utmZoneCentralMeridian(zone),
+    k0: UTM_SCALE_FACTOR,
+    falseEasting: 500000,
+    falseNorthing: hemisphere === 'S' ? 10000000 : 0,
+  };
+}
+
+/** Converte lat/lon (graus) em coordenadas planas Transversa Mercator (m). */
+export function transverseMercatorForward(
+  lat: number,
+  lon: number,
+  params: TransverseMercatorParams,
+  ellipsoid: Ellipsoid = WGS84
+): { easting: number; northing: number } {
   if (Math.abs(lat) >= 90) throw new Error('Latitude deve estar entre -90° e 90°.');
-  const zone = lonToUtmZone(lon);
-  const hemisphere: 'N' | 'S' = lat < 0 ? 'S' : 'N';
 
   const f = ellipsoid.f;
   const e = Math.sqrt(f * (2 - f));
@@ -191,7 +215,7 @@ export function geographicToUTM(lat: number, lon: number, ellipsoid: Ellipsoid =
   const { alpha } = krugerSeries(n);
 
   const φ = toRad(lat);
-  const λ = toRad(normalizeLon(lon - utmZoneCentralMeridian(zone)));
+  const λ = toRad(normalizeLon(lon - params.lon0));
 
   // Latitude isométrica → esfera conforme
   const t = Math.sinh(Math.atanh(Math.sin(φ)) - e * Math.atanh(e * Math.sin(φ)));
@@ -206,28 +230,27 @@ export function geographicToUTM(lat: number, lon: number, ellipsoid: Ellipsoid =
     η += a * Math.cos(2 * j * ξʹ) * Math.sinh(2 * j * ηʹ);
   }
 
-  const easting = UTM_SCALE_FACTOR * A * η + 500000;
-  const northing = UTM_SCALE_FACTOR * A * ξ + (hemisphere === 'S' ? 10000000 : 0);
-  return { zone, hemisphere, easting, northing };
+  return {
+    easting: params.k0 * A * η + params.falseEasting,
+    northing: params.k0 * A * ξ + params.falseNorthing,
+  };
 }
 
-/** Converte UTM em latitude/longitude (graus decimais). */
-export function utmToGeographic(utm: UTMCoordinate, ellipsoid: Ellipsoid = WGS84): { lat: number; lon: number } {
-  if (utm.easting < 100000 || utm.easting > 900000) {
-    throw new Error(`Easting fora do intervalo de um fuso UTM (100000–900000 m): ${utm.easting}`);
-  }
-  if (utm.northing < 0 || utm.northing > 10000000) {
-    throw new Error(`Northing fora do intervalo UTM (0–10000000 m): ${utm.northing}`);
-  }
-
+/** Inversa da Transversa Mercator: coordenadas planas (m) → lat/lon (graus). */
+export function transverseMercatorInverse(
+  easting: number,
+  northing: number,
+  params: TransverseMercatorParams,
+  ellipsoid: Ellipsoid = WGS84
+): { lat: number; lon: number } {
   const f = ellipsoid.f;
   const e = Math.sqrt(f * (2 - f));
   const n = f / (2 - f);
   const A = krugerConstant(ellipsoid, n);
   const { beta } = krugerSeries(n);
 
-  const ξ = (utm.northing - (utm.hemisphere === 'S' ? 10000000 : 0)) / (UTM_SCALE_FACTOR * A);
-  const η = (utm.easting - 500000) / (UTM_SCALE_FACTOR * A);
+  const ξ = (northing - params.falseNorthing) / (params.k0 * A);
+  const η = (easting - params.falseEasting) / (params.k0 * A);
 
   let ξʹ = ξ;
   let ηʹ = η;
@@ -248,7 +271,60 @@ export function utmToGeographic(utm: UTMCoordinate, ellipsoid: Ellipsoid = WGS84
     sinφ = Math.tanh(ψ + e * Math.atanh(e * sinφ));
   }
 
-  return { lat: toDeg(Math.asin(sinφ)), lon: utmZoneCentralMeridian(utm.zone) + lon };
+  return { lat: toDeg(Math.asin(sinφ)), lon: params.lon0 + lon };
+}
+
+/** Converte latitude/longitude (graus decimais) em UTM. */
+export function geographicToUTM(lat: number, lon: number, ellipsoid: Ellipsoid = WGS84): UTMCoordinate {
+  const zone = lonToUtmZone(lon);
+  const hemisphere: 'N' | 'S' = lat < 0 ? 'S' : 'N';
+  const { easting, northing } = transverseMercatorForward(lat, lon, utmParams(zone, hemisphere), ellipsoid);
+  return { zone, hemisphere, easting, northing };
+}
+
+/** Converte UTM em latitude/longitude (graus decimais). */
+export function utmToGeographic(utm: UTMCoordinate, ellipsoid: Ellipsoid = WGS84): { lat: number; lon: number } {
+  if (utm.easting < 100000 || utm.easting > 900000) {
+    throw new Error(`Easting fora do intervalo de um fuso UTM (100000–900000 m): ${utm.easting}`);
+  }
+  if (utm.northing < 0 || utm.northing > 10000000) {
+    throw new Error(`Northing fora do intervalo UTM (0–10000000 m): ${utm.northing}`);
+  }
+  return transverseMercatorInverse(utm.easting, utm.northing, utmParams(utm.zone, utm.hemisphere), ellipsoid);
+}
+
+// ===== LTM (Transversa Local, "fuso sob medida" do topógrafo) =====
+
+export interface LTMParams extends TransverseMercatorParams {
+  hemisphere: 'N' | 'S';
+}
+
+/**
+ * Parâmetros LTM padrão do Brasil: k0 = 1, falso easting 50 000 m,
+ * falso northing 10 000 000 m (hemisfério sul), meridiano central informado.
+ */
+export function ltmParams(lon0: number, hemisphere: 'N' | 'S' = 'S', falseEasting = 50000, k0 = 1): LTMParams {
+  return { lon0, k0, falseEasting, falseNorthing: hemisphere === 'S' ? 10000000 : 0, hemisphere };
+}
+
+/** Lat/lon → LTM (Transversa Local). */
+export function geographicToLTM(
+  lat: number,
+  lon: number,
+  params: LTMParams,
+  ellipsoid: Ellipsoid = WGS84
+): { easting: number; northing: number } {
+  return transverseMercatorForward(lat, lon, params, ellipsoid);
+}
+
+/** LTM → Lat/lon. */
+export function ltmToGeographic(
+  easting: number,
+  northing: number,
+  params: LTMParams,
+  ellipsoid: Ellipsoid = WGS84
+): { lat: number; lon: number } {
+  return transverseMercatorInverse(easting, northing, params, ellipsoid);
 }
 
 /** Rótulo no formato usado no Brasil: "23S", "22K" etc. (letra = hemisfério). */
