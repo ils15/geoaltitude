@@ -1,102 +1,61 @@
-<div align="center">
-
-<img src="public/favicon.svg" width="88" alt="OpenGeoaltitude" />
-
 # OpenGeoaltitude
 
-**Conversão de altitudes com o geóide oficial e modelos globais abertos**
+Converte altitude geométrica (GNSS) em ortométrica com o modelo geoidal oficial do IBGE — para topógrafos e engenheiros que precisam fechar nivelamento em campo e em escritório.
 
-</div>
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Demo](https://img.shields.io/badge/demo-ao%20vivo-2ea44f)](https://ils15.github.io/geoaltitude/)
+[![Stack](https://img.shields.io/badge/stack-React%2019%20%2B%20TypeScript%20%2B%20Vite-3178c6)](package.json)
+[![Geoides](https://img.shields.io/badge/geoides-hgeoHNOR%20%C2%B7%20EGM96%20%C2%B7%20EGM2008-green)](https://servicodados.ibge.gov.br/api/docs)
 
-[![CI](https://github.com/ils15/geoaltitude/actions/workflows/ci.yml/badge.svg)](https://github.com/ils15/geoaltitude/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Model: hgeoHNOR + EGM96 + EGM2008](https://img.shields.io/badge/geoides-hgeoHNOR%20·%20EGM96%20·%20EGM2008-green)](https://www.ibge.gov.br/)
-[![Standards: SIRGAS2000](https://img.shields.io/badge/Geodesy-SIRGAS2000-gold)](https://www.sirgas.org/)
+## O que é
 
-**OpenGeoaltitude** (anteriormente _GeoAlt_) é uma plataforma de inteligência geográfica projetada para a conversão de alta precisão entre altitudes geométricas (GNSS) e ortométricas. Utilizando o motor oficial **hgeoHNOR2020** do IBGE, o sistema provê a ponte fundamental entre a medição satelital e a realidade física do terreno.
+Receptor GNSS entrega altitude elipsoidal (h); projeto, cadastro e obra exigem altitude referida ao nível médio do mar (H). A ponte entre as duas é a ondulação geoidal N, pela relação `H = h − N`, e no Brasil quem define N é o hgeoHNOR do IBGE, referido ao RN2015/Imbituba.
 
-🌐 **Demo online:** [ils15.github.io/geoaltitude](https://ils15.github.io/geoaltitude/)
+O app resolve isso em lote: importa CSV, KML, GeoJSON, XLSX ou Shapefile, consulta o modelo oficial pela API pública do IBGE, calcula H e mostra mapa, perfil altimétrico e gráfico de discrepância. Para pontos fora da grade ou trabalho sem rede, avalia EGM96 e EGM2008 localmente no navegador.
 
-🗓️ **Roadmap de evolução:** [`ROADMAP.md`](ROADMAP.md) — plano estruturado em 5 fases (CI/E2E, entrada de dados, ferramentas do topógrafo, produto em campo, geodésia profunda).
+A aba de conversões cobre UTM, LTM, ECEF, datum (SIRGAS2000, WGS84, SAD69(96), SAD69 clássico, Córrego Alegre) e ITRF2000 ↔ ITRF2014 com época — tudo offline. Do navegador só saem as coordenadas enviadas ao IBGE, ao Nominatim (endereço aproximado) e ao Open-Meteo (elevação de DEM).
 
-📲 **Aplicativos (Android/Windows/macOS) e downloads:** [`APPS.md`](APPS.md) — roadmap de distribuição multiplataforma, versionamento e [`Releases`](https://github.com/ils15/geoaltitude/releases) · [Política de Privacidade](https://ils15.github.io/geoaltitude/privacidade.html)
+## Demo
 
-## 🚀 Demo rápido (1 minuto)
+<https://ils15.github.io/geoaltitude/> — na aba de lote, clique em *Usar dados de exemplo* (13 pontos pelo Brasil) e depois em *Processar Agora*.
 
-1. Abra a aba **Lote (CSV)** e clique em **“Usar dados de exemplo”** — 13 pontos pelo Brasil (do Pão de Açúcar ao Pico da Neblina), com `h` derivada do modelo geoidal real.
-2. Confirme o mapeamento e clique em **Processar Agora**: o app consulta o modelo **hgeoHNOR** do IBGE em lote (~200 pontos por chamada) e calcula `H = h − N`.
-3. Explore mapa colorido por altitude, perfil altimétrico com faixa de discrepância, gráfico de Discrepância N e exportação CSV/KML/**DXF em UTM**.
-4. Na aba **Conversões**, teste UTM ↔ geográficas, datums (SAD69(96) → SIRGAS2000 com parâmetros oficiais IBGE), altimetria h/H/N e distâncias — tudo offline, validado por 538 testes contra o PROJ.
+Arquivo de exemplo: [`public/exemplos/geoalt_demo.csv`](public/exemplos/geoalt_demo.csv).
 
-Arquivo de exemplo: [`public/exemplos/geoalt_demo.csv`](public/exemplos/geoalt_demo.csv) (ou baixe direto do app, na aba Entenda).
-Curiosidades dos dados: em Belém o `h` elipsoidal fica **negativo** (N ≈ −25,7 m); no Sul N é **positivo** (+4 a +5 m); no oeste amazônico a API responde com o fallback `MAPGEO2015_OESTE`.
+## Instalação
 
----
-
-## 🏗️ Arquitetura e Fluxo de Dados
-
-```mermaid
-graph TD
-    A[Upload CSV/Shapefile] --> B{Validação & Mapping}
-    B --> C[Processamento em Lote]
-    C --> D[API IBGE hgeoHNOR2020]
-    D --> E[Geocodificação Reversa OSM]
-    E --> F[Dashboard de Análise Espacial]
-    F --> G[Relatórios PDF & Exportação]
+```bash
+npm install
+npm run dev      # Vite em http://localhost:3000
 ```
 
-## 📐 Fundamentos Geodéticos
+Não há chave de API nem backend: a consulta ao IBGE é pública e o processamento é client-side.
 
-O GeoAlt resolve a complexidade da ondulação geoidal brasileira. Enquanto receptores GNSS medem a distância até o elipsoide matemático (**h**), projetos de engenharia exigem a altitude referenciada ao nível médio do mar (**H**).
+## Uso
 
-**Equação Fundamental:**  
-`H = h - N`
+Na interface, envie um arquivo de pontos com latitude, longitude e altitude elipsoidal:
 
-Onde:
+```csv
+latitude,longitude,altitude_elipsoidal,descricao
+-22.9492,-43.1545,-1.07,"Rio de Janeiro - Pão de Açúcar (RJ)"
+-23.5505,-46.6333,756.84,"São Paulo - Praça da Sé (SP)"
+```
 
-- **H**: Altitude Ortométrica (Nível Médio do Mar / Imbituba)
-- **h**: Altitude Geométrica (GNSS / SIRGAS2000)
-- **N**: Ondulação Geoidal (Modelo hgeoHNOR2020)
+O resultado traz N, H e a incerteza do modelo por ponto, com exportação para CSV, KML, DXF em UTM (Z = H) e relatório técnico em PDF. Para gerar a versão de produção:
 
-## 🛡️ Privacidade e Segurança de Dados
+```bash
+npm run build
+npm run preview
+```
 
-O GeoAlt foi desenvolvido com foco absoluto em privacidade industrial:
+## Estrutura
 
-- **Zero Data Retention**: Seus dados de coordenadas não são armazenados em nossos servidores.
-- **Client-Side Heavy**: O processamento de arquivos (CSV/Shapefile) e a geração de relatórios ocorrem diretamente no seu navegador.
-- **Transparência**: Conexões externas são realizadas exclusivamente com as APIs oficiais do IBGE e OpenStreetMap (Nominatim).
+```
+src/lib/          geodésia, modelos geoidais, importação/exportação, relatório PDF
+src/components/   mapa, lote, conversões, gráficos
+public/geoid/     grade EGM2008 (4,7 MB, baixada sob demanda)
+tests/e2e/        Playwright
+```
 
-## 📊 Biblioteca de Gráficos (Frontend)
+## Licença
 
-A visualização dos dashboards é construída com **React + Recharts**, com foco em leitura geoespacial e contexto topografico.
-
-### Componentes Implementados
-
-- **Perfil de Elevação (Perfil H)**
-  - Eixo horizontal em distancia acumulada (km), calculada por Haversine
-  - Camada dupla: **H** como area com gradiente e **h** como linha pontilhada
-  - Exibe de forma visual a relacao geodesica entre h, H e ondulacao geoidal (N)
-
-- **Planimetria (XY)**
-  - Trajeto em coordenadas geograficas com colorizacao por altitude
-  - Escala cromatica continua para reforcar mudancas altimetricas
-  - Proporcao espacial ajustada para reduzir distorcoes visuais da rota
-
-- **Polimento Visual**
-  - Grid horizontal sutil (sem linhas verticais)
-  - Destaque de ponto apenas no hover com tooltip tecnico
-  - Nota tecnica orientando o uso do modo mapa para projecao cartografica fiel
-
-### Referencia de Implementacao
-
-- `src/components/StatsDashboard.tsx`
-
----
-
-## 📜 Licença e Conformidade
-
-Este software é distribuído sob a **Apache License 2.0**. Ele está em total conformidade com as normas técnicas brasileiras para georreferenciamento e topografia.
-
----
-
-_GeoAlt - Precisão Milimétrica para Grandes Decisões._
+Apache 2.0 — veja [`LICENSE`](LICENSE).
